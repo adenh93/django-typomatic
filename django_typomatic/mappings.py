@@ -15,9 +15,9 @@ mappings = {
     serializers.IntegerField: 'number',
     serializers.FloatField: 'number',
     serializers.DecimalField: 'number',
-    serializers.DateTimeField: 'Date',
-    serializers.DateField: 'Date',
-    serializers.TimeField: 'Date',
-    serializers.DurationField: 'Date',
+    serializers.DateTimeField: 'string',
+    serializers.DateField: 'string',
+    serializers.TimeField: 'string',
+    serializers.DurationField: 'string',
     serializers.DictField: 'Map'
 }

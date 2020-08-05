@@ -1,5 +1,8 @@
+import logging
 from rest_framework import serializers
 from .mappings import mappings
+
+_LOG = logging.getLogger(f"django-typomatic.{__name__}")
 
 __serializers = dict()
 
@@ -23,6 +26,19 @@ def ts_interface(context='default'):
         return cls
     return decorator
 
+def __process_field(field_name, field, context):
+    '''
+    Generates and returns a tuple representing the Typescript field name and Type.
+    '''
+    is_many = hasattr(field, 'child')
+    field_type = is_many and type(field.child) or type(field)
+    if field_type in __serializers[context]:
+        ts_type = field_type.__name__
+    else:
+        ts_type = mappings.get(field_type, 'any')
+    if is_many:
+        ts_type += '[]'
+    return (field_name, ts_type)
 
 def __get_ts_interface(serializer, context):
     '''
@@ -32,23 +48,19 @@ def __get_ts_interface(serializer, context):
     data type.
     '''
     name = serializer.__name__
+    _LOG.debug(f"Creating interface for {name}")
+    fields = []
+    if issubclass(serializer, serializers.ModelSerializer):
+        instance = serializer()
+        fields = instance.get_fields().items()
+    else:
+        fields = serializer._declared_fields.items()
     ts_fields = []
-    for key, value in serializer._declared_fields.items():
-        is_many = hasattr(value, 'child')
-        value_type = is_many and type(value.child) or type(value)
-        if value_type in __serializers[context]:
-            ts_type = value_type.__name__
-        else:
-            ts_type = mappings.get(value_type, 'any')
-
-        if is_many:
-            ts_type += '[]'
-
-        ts_fields.append(
-            f'\t{key}: {ts_type};'
-        )
-    ts_fields = '\n'.join(ts_fields)
-    return f'export interface {name} {{\n{ts_fields}\n}}\n\n'
+    for key, value in fields:
+        ts_field = __process_field(key, value, context)
+        ts_fields.append(f"    {ts_field[0]}: {ts_field[1]};")
+    collapsed_fields = '\n'.join(ts_fields)
+    return f'export interface {name} {{\n{collapsed_fields}\n}}\n\n'
 
 
 def generate_ts(output_path, context='default'):
