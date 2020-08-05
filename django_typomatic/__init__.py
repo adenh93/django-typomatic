@@ -8,6 +8,8 @@ _LOG = logging.getLogger(f"django-typomatic.{__name__}")
 __serializers = dict()
 # Custom serializers.Field to TS Type mappings
 __field_mappings = dict()
+# Custom field_name to TS Type overrides
+__mapping_overrides = dict()
 
 def ts_field(ts_type: str, context='default'):
     '''
@@ -31,26 +33,35 @@ def ts_field(ts_type: str, context='default'):
         return cls
     return decorator
 
-def ts_interface(context='default'):
+def ts_interface(context='default', mapping_overrides=None):
     '''
     Any valid Django Rest Framework Serializers with this class decorator will
-    be added to a list in a dictionary. An optional parameter: 'context'
-    may be provided, which will create separate dictionary keys per context.
-    Otherwise, all values will be inserted into a list with a key of 'default'.
+    be added to a list in a dictionary.
+    Optional parameters:
+    'context': Will create separate dictionary keys per context.
+        Otherwise, all values will be inserted into a list with a key of 'default'.
+    'mapping_overrides': Dictionary of field_names to TS types
+        Useful to properly serialize ModelSerializer runtime properties and ReadOnlyFields.
     e.g.
-    @ts_interface(context='internal')
+    @ts_interface(context='internal', mapping_overrides={"baz" : "string[]"})
     class Foo(serializers.Serializer):
         bar = serializer.IntegerField()
+        baz = serializer.ReadOnlyField(source='baz_property')
     '''
     def decorator(cls):
         if issubclass(cls, serializers.Serializer):
             if context not in __serializers:
                 __serializers[context] = []
             __serializers[context].append(cls)
+            if mapping_overrides:
+                if context not in __mapping_overrides:
+                    __mapping_overrides[context] = dict()
+                if cls not in __mapping_overrides[context]:
+                    __mapping_overrides[context][cls] = mapping_overrides
         return cls
     return decorator
 
-def __process_field(field_name, field, context):
+def __process_field(field_name, field, context, serializer):
     '''
     Generates and returns a tuple representing the Typescript field name and Type.
     '''
@@ -60,6 +71,8 @@ def __process_field(field_name, field, context):
         ts_type = field_type.__name__
     elif field_type in __field_mappings[context]:
         ts_type = __field_mappings[context].get(field_type, 'any')
+    elif (context in __mapping_overrides) and (serializer in __mapping_overrides[context]) and field_name in __mapping_overrides[context][serializer]:
+        ts_type = __mapping_overrides[context][serializer].get(field_name, 'any')
     else:
         ts_type = mappings.get(field_type, 'any')
     if is_many:
@@ -83,7 +96,7 @@ def __get_ts_interface(serializer, context):
         fields = serializer._declared_fields.items()
     ts_fields = []
     for key, value in fields:
-        ts_field = __process_field(key, value, context)
+        ts_field = __process_field(key, value, context, serializer)
         ts_fields.append(f"    {ts_field[0]}: {ts_field[1]};")
     collapsed_fields = '\n'.join(ts_fields)
     return f'export interface {name} {{\n{collapsed_fields}\n}}\n\n'
