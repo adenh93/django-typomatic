@@ -4,8 +4,32 @@ from .mappings import mappings
 
 _LOG = logging.getLogger(f"django-typomatic.{__name__}")
 
+# Serializers
 __serializers = dict()
+# Custom serializers.Field to TS Type mappings
+__field_mappings = dict()
 
+def ts_field(ts_type: str, context='default'):
+    '''
+    Any valid Django Rest Framework Serializer Field with this class decorator will
+    be added to a list in a __field_mappings dictionary.
+    Useful to define the type mapping of custom serializer Fields.
+    e.g.
+    @ts_field('string')
+    class CustomFieldField(serializers.Field):
+        def to_internal_value(self, data):
+            pass
+        def to_representation(self, obj):
+            pass
+    '''
+    def decorator(cls):
+        if issubclass(cls, serializers.Field):
+            if context not in __field_mappings:
+                __field_mappings[context] = dict()
+            if cls not in __field_mappings[context]:
+                __field_mappings[context][cls] = ts_type
+        return cls
+    return decorator
 
 def ts_interface(context='default'):
     '''
@@ -34,6 +58,8 @@ def __process_field(field_name, field, context):
     field_type = is_many and type(field.child) or type(field)
     if field_type in __serializers[context]:
         ts_type = field_type.__name__
+    elif field_type in __field_mappings[context]:
+        ts_type = __field_mappings[context].get(field_type, 'any')
     else:
         ts_type = mappings.get(field_type, 'any')
     if is_many:
