@@ -50,6 +50,8 @@ def ts_interface(context='default', mapping_overrides=None):
     '''
     def decorator(cls):
         if issubclass(cls, serializers.Serializer):
+            if context not in __field_mappings:
+                __field_mappings[context] = dict()
             if context not in __serializers:
                 __serializers[context] = []
             __serializers[context].append(cls)
