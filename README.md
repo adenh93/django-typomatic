@@ -1,4 +1,6 @@
-# django-typomatic
+
+
+# django-typomatic ![pypi badge](https://img.shields.io/pypi/v/django-typomatic)
 _A simple solution for generating Typescript interfaces from your [Django Rest Framework Serializers](https://www.django-rest-framework.org/api-guide/serializers/)._
 
 Since I now require a simple package to generate Typescript interfaces for Django Rest Framework serializers, I've decided to port over my [Typemallow](https://github.com/adenh93/typemallow/) package for use with DRF serializers!
