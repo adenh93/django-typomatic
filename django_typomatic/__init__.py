@@ -110,6 +110,8 @@ def __get_ts_interface(serializer, context):
 
 
 def __generate_interfaces(context):
+    if context not in __serializers:
+        return []
     return [__get_ts_interface(serializer, context)
             for serializer in __serializers[context]]
 

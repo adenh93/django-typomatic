@@ -39,6 +39,4 @@ export interface Bar {
 
 def test_get_ts():
     interfaces = get_ts('internal')
-    print(repr(interfaces))
-    print(repr(expected))
     assert interfaces == expected
