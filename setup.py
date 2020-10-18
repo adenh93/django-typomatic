@@ -6,7 +6,7 @@ with open('README.md') as file:
 
 setuptools.setup(
     name="django-typomatic",
-    version="1.0.0",
+    version="1.1.0",
     url="https://github.com/adenh93/django-typomatic",
 
     author="Aden Herold",
@@ -15,7 +15,8 @@ setuptools.setup(
     description="A simple solution for generating Typescript interfaces from your Django Rest Framework Serializers.",
     long_description=long_description,
     long_description_content_type='text/markdown',
-    keywords=['Django', 'Django Rest Framework', 'DRF', 'Typescript', 'Python'],
+    keywords=['Django', 'Django Rest Framework',
+              'DRF', 'Typescript', 'Python'],
 
     packages=['django_typomatic'],
     include_package_data=True,
