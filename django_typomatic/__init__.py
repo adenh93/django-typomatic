@@ -126,6 +126,7 @@ def generate_ts(output_path, context='default'):
     '''
     with open(output_path, 'w') as output_file:
         interfaces = __generate_interfaces(context)
+        print(interfaces)
         output_file.write(''.join(interfaces))
 
 
