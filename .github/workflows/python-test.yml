@@ -1,8 +1,9 @@
 name: Test Python Package
 
-on: push
-tags-ignore:
-  - "*.*"
+on:
+  push:
+    tags-ignore:
+      - "*.*"
 
 jobs:
   test:
