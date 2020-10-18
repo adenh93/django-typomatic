@@ -11,6 +11,7 @@ __field_mappings = dict()
 # Custom field_name to TS Type overrides
 __mapping_overrides = dict()
 
+
 def ts_field(ts_type: str, context='default'):
     '''
     Any valid Django Rest Framework Serializer Field with this class decorator will
@@ -32,6 +33,7 @@ def ts_field(ts_type: str, context='default'):
                 __field_mappings[context][cls] = ts_type
         return cls
     return decorator
+
 
 def ts_interface(context='default', mapping_overrides=None):
     '''
@@ -63,6 +65,7 @@ def ts_interface(context='default', mapping_overrides=None):
         return cls
     return decorator
 
+
 def __process_field(field_name, field, context, serializer):
     '''
     Generates and returns a tuple representing the Typescript field name and Type.
@@ -74,12 +77,14 @@ def __process_field(field_name, field, context, serializer):
     elif field_type in __field_mappings[context]:
         ts_type = __field_mappings[context].get(field_type, 'any')
     elif (context in __mapping_overrides) and (serializer in __mapping_overrides[context]) and field_name in __mapping_overrides[context][serializer]:
-        ts_type = __mapping_overrides[context][serializer].get(field_name, 'any')
+        ts_type = __mapping_overrides[context][serializer].get(
+            field_name, 'any')
     else:
         ts_type = mappings.get(field_type, 'any')
     if is_many:
         ts_type += '[]'
     return (field_name, ts_type)
+
 
 def __get_ts_interface(serializer, context):
     '''
@@ -104,6 +109,11 @@ def __get_ts_interface(serializer, context):
     return f'export interface {name} {{\n{collapsed_fields}\n}}\n\n'
 
 
+def __generate_interfaces(context):
+    return [__get_ts_interface(serializer, context)
+            for serializer in __serializers[context]]
+
+
 def generate_ts(output_path, context='default'):
     '''
     When this function is called, a Typescript interface will be generated
@@ -115,6 +125,15 @@ def generate_ts(output_path, context='default'):
     The Typescript interfaces will then be outputted to the file provided.
     '''
     with open(output_path, 'w') as output_file:
-        interfaces = [__get_ts_interface(serializer, context)
-                      for serializer in __serializers[context]]
+        interfaces = __generate_interfaces(context)
         output_file.write(''.join(interfaces))
+
+
+def get_ts(context='default'):
+    '''
+    Similar to generate_ts. But rather than outputting the generated 
+    interfaces to the specified file, will return the generated interfaces 
+    as a raw string.
+    '''
+    interfaces = __generate_interfaces(context)
+    return ''.join(interfaces)
