@@ -104,7 +104,11 @@ def __get_ts_interface(serializer, context):
     ts_fields = []
     for key, value in fields:
         ts_field = __process_field(key, value, context, serializer)
-        ts_fields.append(f"    {ts_field[0]}: {ts_field[1]};")
+        if value.read_only or not value.required:
+            op = '?:'
+        else:
+            op = ':'
+        ts_fields.append(f"    {ts_field[0]}{op} {ts_field[1]};")
     collapsed_fields = '\n'.join(ts_fields)
     return f'export interface {name} {{\n{collapsed_fields}\n}}\n\n'
 
