@@ -70,8 +70,16 @@ def __process_field(field_name, field, context, serializer):
     '''
     Generates and returns a tuple representing the Typescript field name and Type.
     '''
-    is_many = hasattr(field, 'child')
-    field_type = is_many and type(field.child) or type(field)
+    if hasattr(field, 'child'):
+        is_many = True
+        field_type = type(field.child)
+    elif hasattr(field, 'child_relation'):
+        is_many = True
+        field_type = type(field.child_relation)
+    else:
+        is_many = False
+        field_type = type(field)
+
     if field_type in __serializers[context]:
         ts_type = field_type.__name__
     elif field_type in __field_mappings[context]:
