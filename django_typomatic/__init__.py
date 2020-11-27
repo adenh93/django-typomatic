@@ -96,7 +96,7 @@ def __get_ts_interface(serializer, context):
     name = serializer.__name__
     _LOG.debug(f"Creating interface for {name}")
     fields = []
-    if issubclass(serializer, serializers.ModelSerializer):
+    if hasattr(serializer, 'get_fields'):
         instance = serializer()
         fields = instance.get_fields().items()
     else:
