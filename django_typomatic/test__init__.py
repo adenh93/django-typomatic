@@ -9,7 +9,7 @@ from . import ts_interface, generate_ts, get_ts
 class Foo(serializers.Serializer):
     some_field = serializers.ListField(child=serializers.IntegerField())
     another_field = serializers.CharField()
-
+    null_field = serializers.CharField(allow_null=True)
 
 @ts_interface(context='internal')
 class Bar(serializers.Serializer):
@@ -26,6 +26,7 @@ class Other(serializers.Serializer):
 expected = """export interface Foo {
     some_field: number[];
     another_field: string;
+    null_field: string | null;
 }
 
 export interface Bar {

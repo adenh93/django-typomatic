@@ -79,7 +79,6 @@ def __process_field(field_name, field, context, serializer):
     else:
         is_many = False
         field_type = type(field)
-
     if field_type in __serializers[context]:
         ts_type = field_type.__name__
     elif field_type in __field_mappings[context]:
@@ -111,12 +110,15 @@ def __get_ts_interface(serializer, context):
         fields = serializer._declared_fields.items()
     ts_fields = []
     for key, value in fields:
-        ts_field = __process_field(key, value, context, serializer)
+        property, type = __process_field(key, value, context, serializer)
+
         if value.read_only or not value.required:
-            op = '?:'
-        else:
-            op = ':'
-        ts_fields.append(f"    {ts_field[0]}{op} {ts_field[1]};")
+            property = property + "?"
+
+        if value.allow_null:
+            type = type + " | null"
+
+        ts_fields.append(f"    {property}: {type};")
     collapsed_fields = '\n'.join(ts_fields)
     return f'export interface {name} {{\n{collapsed_fields}\n}}\n\n'
 
