@@ -6,24 +6,44 @@ from . import ts_interface, generate_ts, get_ts
 
 
 @ts_interface(context='internal')
-class Foo(serializers.Serializer):
+class FooSerializer(serializers.Serializer):
     some_field = serializers.ListField(child=serializers.IntegerField())
     another_field = serializers.CharField()
     null_field = serializers.CharField(allow_null=True)
 
+
 @ts_interface(context='internal')
-class Bar(serializers.Serializer):
-    foo = Foo()
-    foos = Foo(many=True)
+class BarSerializer(serializers.Serializer):
+    foo = FooSerializer()
+    foos = FooSerializer(many=True)
     bar_field = serializers.CharField()
 
 
 @ts_interface(context='external')
-class Other(serializers.Serializer):
+class OtherSerializer(serializers.Serializer):
     field = serializers.IntegerField()
 
 
-expected = """export interface Foo {
+def test_get_ts():
+    expected = """export interface FooSerializer {
+    some_field: number[];
+    another_field: string;
+    null_field: string | null;
+}
+
+export interface BarSerializer {
+    foo: FooSerializer;
+    foos: FooSerializer[];
+    bar_field: string;
+}
+
+"""
+    interfaces = get_ts('internal')
+    assert interfaces == expected
+
+
+def test_exclude_serializer():
+    expected = """export interface Foo {
     some_field: number[];
     another_field: string;
     null_field: string | null;
@@ -36,8 +56,5 @@ export interface Bar {
 }
 
 """
-
-
-def test_get_ts():
-    interfaces = get_ts('internal')
+    interfaces = get_ts('internal', trim_serializer_output=True)
     assert interfaces == expected
