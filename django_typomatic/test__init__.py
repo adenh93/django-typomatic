@@ -58,3 +58,21 @@ export interface Bar {
 """
     interfaces = get_ts('internal', trim_serializer_output=True)
     assert interfaces == expected
+
+def test_camlize():
+    expected = """export interface FooSerializer {
+    someField: number[];
+    anotherField: string;
+    nullField: string | null;
+}
+
+export interface BarSerializer {
+    foo: FooSerializer;
+    foos: FooSerializer[];
+    barField: string;
+}
+
+"""
+    interfaces = get_ts('internal', camelize=True)
+    assert interfaces == expected
+

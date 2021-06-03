@@ -71,7 +71,7 @@ def __get_trimmed_name(name, trim_serializer_output):
     return name[:-len(key)] if trim_serializer_output and name.endswith(key) else name
 
 
-def __process_field(field_name, field, context, serializer, trim_serializer_output):
+def __process_field(field_name, field, context, serializer, trim_serializer_output, camelize):
     '''
     Generates and returns a tuple representing the Typescript field name and Type.
     '''
@@ -96,10 +96,15 @@ def __process_field(field_name, field, context, serializer, trim_serializer_outp
         ts_type = mappings.get(field_type, 'any')
     if is_many:
         ts_type += '[]'
+
+    if camelize:
+        field_name_components = field_name.split("_")
+        field_name = field_name_components[0] + "".join(x.title() for x in field_name_components[1:])
+
     return (field_name, ts_type)
 
 
-def __get_ts_interface(serializer, context, trim_serializer_output):
+def __get_ts_interface(serializer, context, trim_serializer_output, camelize):
     '''
     Generates and returns a Typescript Interface by iterating
     through the serializer fields of the DRF Serializer class
@@ -117,7 +122,7 @@ def __get_ts_interface(serializer, context, trim_serializer_output):
     ts_fields = []
     for key, value in fields:
         property, type = __process_field(
-            key, value, context, serializer, trim_serializer_output)
+            key, value, context, serializer, trim_serializer_output, camelize)
 
         if value.read_only or not value.required:
             property = property + "?"
@@ -130,14 +135,14 @@ def __get_ts_interface(serializer, context, trim_serializer_output):
     return f'export interface {name} {{\n{collapsed_fields}\n}}\n\n'
 
 
-def __generate_interfaces(context, trim_serializer_output):
+def __generate_interfaces(context, trim_serializer_output, camelize):
     if context not in __serializers:
         return []
-    return [__get_ts_interface(serializer, context, trim_serializer_output)
+    return [__get_ts_interface(serializer, context, trim_serializer_output, camelize)
             for serializer in __serializers[context]]
 
 
-def generate_ts(output_path, context='default', trim_serializer_output=False):
+def generate_ts(output_path, context='default', trim_serializer_output=False, camelize=False):
     '''
     When this function is called, a Typescript interface will be generated
     for each DRF Serializer in the serializers dictionary, depending on the
@@ -148,15 +153,15 @@ def generate_ts(output_path, context='default', trim_serializer_output=False):
     The Typescript interfaces will then be outputted to the file provided.
     '''
     with open(output_path, 'w') as output_file:
-        interfaces = __generate_interfaces(context, trim_serializer_output)
+        interfaces = __generate_interfaces(context, trim_serializer_output, camelize)
         output_file.write(''.join(interfaces))
 
 
-def get_ts(context='default', trim_serializer_output=False):
+def get_ts(context='default', trim_serializer_output=False, camelize=False):
     '''
     Similar to generate_ts. But rather than outputting the generated 
     interfaces to the specified file, will return the generated interfaces 
     as a raw string.
     '''
-    interfaces = __generate_interfaces(context, trim_serializer_output)
+    interfaces = __generate_interfaces(context, trim_serializer_output, camelize)
     return ''.join(interfaces)
