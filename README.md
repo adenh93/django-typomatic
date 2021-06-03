@@ -164,3 +164,30 @@ export interface FooBar {
   foo_bar: string
 }
 ```
+
+#### Camelize
+
+You can use django dependencies that converts the response from `snake_casing` to `camelCasing`. The solution offered for this is camelize:
+
+```python
+from django_typomatic import ts_interface, generate_ts
+from rest_framework import serializers
+
+
+@ts_interface()
+class Foo(serializers.Serializer):
+    some_field = serializers.CharField()
+
+
+generate_ts('./output.ts', camelize=True)
+```
+
+Different from the main example. The interface attributes are now camel casing.
+
+_output.ts_
+
+```typescript
+export interface Foo {
+  someField: string
+}
+```
