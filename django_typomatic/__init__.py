@@ -80,7 +80,7 @@ def __map_choices_to_union(field_type, choices):
         _LOG.warning(f'No choices specified for Serializer Field: {field_type}')
         return 'any'
 
-    return ' | '.join(choices.values())
+    return ' | '.join(f'"{key}"' if type(key) == str else str(key) for key in choices.keys())
 
 
 def __process_field(field_name, field, context, serializer, trim_serializer_output, camelize):

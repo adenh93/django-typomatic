@@ -35,10 +35,31 @@ _output.ts_
 
 ```typescript
 export interface Foo {
-  some_field: string
-  another_field: date
+  some_field: string;
+  another_field: date;
 }
 ```
+
+Alternatively, you can call `get_ts()`, which will return the generated interfaces as a raw string, rather than writing the results to a file:
+
+_main.py_
+
+```python
+from django_typomatic import ts_interface, get_ts
+from rest_framework import serializers
+
+
+@ts_interface()
+class Foo(serializers.Serializer):
+    some_field = serializers.ListField(child=serializers.IntegerField())
+    another_field = serializers.CharField()
+
+print(get_ts())
+```
+
+which outputs the following string:
+
+`export interface Foo {\n some_field: number[];\n another_field: string;\n}\n\n`
 
 _django-typomatic_ supports nested serializers, as well as list fields and other fields that act as lists (any field with many=True)
 
@@ -66,37 +87,54 @@ _output.ts_
 
 ```typescript
 export interface Foo {
-  some_field: number[]
-  another_field: string
+  some_field: number[];
+  another_field: string;
 }
 
 export interface Bar {
-  foo: Foo
-  foos: Foo[]
-  bar_field: string
+  foo: Foo;
+  foos: Foo[];
+  bar_field: string;
 }
 ```
 
-Alternatively, you can call `get_ts()`, which will return the generated interfaces as a raw string, rather than writing the results to a file:
+_django-typomatic_ also supports ChoiceField serializers, as well as any other serializer fields that makes use of choices.
 
 _main.py_
 
 ```python
-from django_typomatic import ts_interface, get_ts
+from django_typomatic import ts_interface
 from rest_framework import serializers
+from django.db import models
 
 
-@ts_interface()
-class Foo(serializers.Serializer):
-    some_field = serializers.ListField(child=serializers.IntegerField())
-    another_field = serializers.CharField()
+class ActionType(models.TextChoices):
+    ACTION1 = "Action1", ("Action1")
+    ACTION2 = "Action2", ("Action2")
+    ACTION3 = "Action3", ("Action3")
 
-print(get_ts())
+
+class NumberType(models.IntegerChoices):
+    LOW = 1
+    MEDIUM = 2
+    HIGH = 3
+
+
+@ts_interface('choices')
+class ChoiceSerializer(serializers.Serializer):
+    action = serializers.ChoiceField(choices=ActionType.choices)
+    num = serializers.ChoiceField(choices=NumberType.choices)
+
 ```
 
-which outputs the following string:
+_output.ts_
 
-`export interface Foo {\n some_field: number[];\n another_field: string;\n}\n\n`
+```typescript
+export interface ActionSerializer {
+  action: "Action1" | "Action2" | "Action3";
+  num: 1 | 2 | 3;
+}
+```
 
 ### Extended Usage:
 
@@ -149,11 +187,11 @@ _internal.ts_
 
 ```typescript
 export interface Foo {
-  foo: string
+  foo: string;
 }
 
 export interface Bar {
-  bar: string
+  bar: string;
 }
 ```
 
@@ -161,7 +199,7 @@ _external.ts_
 
 ```typescript
 export interface FooBar {
-  foo_bar: string
+  foo_bar: string;
 }
 ```
 
@@ -188,6 +226,6 @@ _output.ts_
 
 ```typescript
 export interface Foo {
-  someField: string
+  someField: string;
 }
 ```

@@ -36,9 +36,16 @@ class ActionType(models.TextChoices):
     ACTION3 = "Action3", ("Action3")
 
 
+class NumberType(models.IntegerChoices):
+    LOW = 1
+    MEDIUM = 2
+    HIGH = 3
+
+
 @ts_interface('choices')
-class ActionSerializer(serializers.Serializer):
+class ChoiceSerializer(serializers.Serializer):
     action = serializers.ChoiceField(choices=ActionType.choices)
+    num = serializers.ChoiceField(choices=NumberType.choices)
 
 
 def test_get_ts():
@@ -95,8 +102,9 @@ export interface BarSerializer {
 
 
 def test_choices():
-    expected = """export interface ActionSerializer {
-    action: Action1 | Action2 | Action3;
+    expected = """export interface ChoiceSerializer {
+    action: "Action1" | "Action2" | "Action3";
+    num: 1 | 2 | 3;
 }
 
 """
