@@ -2,6 +2,7 @@ import logging
 from rest_framework import serializers
 from .mappings import mappings
 
+
 _LOG = logging.getLogger(f"django-typomatic.{__name__}")
 
 # Serializers
@@ -71,6 +72,17 @@ def __get_trimmed_name(name, trim_serializer_output):
     return name[:-len(key)] if trim_serializer_output and name.endswith(key) else name
 
 
+def __map_choices_to_union(field_type, choices):
+    '''
+    Generates and returns a TS union type for all values in the provided choices OrderedDict
+    '''
+    if not choices:
+        _LOG.warning(f'No choices specified for Serializer Field: {field_type}')
+        return 'any'
+
+    return ' | '.join(choices.values())
+
+
 def __process_field(field_name, field, context, serializer, trim_serializer_output, camelize):
     '''
     Generates and returns a tuple representing the Typescript field name and Type.
@@ -92,6 +104,8 @@ def __process_field(field_name, field, context, serializer, trim_serializer_outp
     elif (context in __mapping_overrides) and (serializer in __mapping_overrides[context]) and field_name in __mapping_overrides[context][serializer]:
         ts_type = __mapping_overrides[context][serializer].get(
             field_name, 'any')
+    elif hasattr(field, 'choices'):
+        ts_type = __map_choices_to_union(field_type, field.choices)
     else:
         ts_type = mappings.get(field_type, 'any')
     if is_many:
