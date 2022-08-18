@@ -104,6 +104,8 @@ def __process_field(field_name, field, context, serializer, trim_serializer_outp
     elif (context in __mapping_overrides) and (serializer in __mapping_overrides[context]) and field_name in __mapping_overrides[context][serializer]:
         ts_type = __mapping_overrides[context][serializer].get(
             field_name, 'any')
+    elif field_type == serializers.PrimaryKeyRelatedField: 
+        ts_type = "number | string"
     elif hasattr(field, 'choices'):
         ts_type = __map_choices_to_union(field_type, field.choices)
     else:
