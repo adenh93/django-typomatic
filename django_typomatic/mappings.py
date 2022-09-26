@@ -3,7 +3,6 @@ from rest_framework import serializers
 
 mappings = {
     serializers.BooleanField: 'boolean',
-    serializers.NullBooleanField: 'boolean',
     serializers.CharField: 'string',
     serializers.EmailField: 'string',
     serializers.RegexField: 'string',
