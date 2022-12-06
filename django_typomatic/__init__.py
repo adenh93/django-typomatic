@@ -83,10 +83,30 @@ def __map_choices_to_union(field_type, choices):
     return ' | '.join(f'"{key}"' if type(key) == str else str(key) for key in choices.keys())
 
 
-def __process_field(field_name, field, context, serializer, trim_serializer_output, camelize):
+def __map_choices_to_enum(enum_name, field_type, choices):
+    '''
+    Generates and returns a TS enum for all values in the provided choices OrderedDict
+    '''
+    if not choices:
+        _LOG.warning(f'No choices specified for Serializer Field: {field_type}')
+        return 'any'
+
+    choices_enum = f"export enum {enum_name} {{\n"
+    for key, value in choices.items():
+        if type(key) == str:
+            choices_enum = choices_enum + f"    {str(value).upper()} = '{key}',\n"
+        else:
+            choices_enum = choices_enum + f"    {str(value).upper()} = {key},\n"
+    choices_enum = choices_enum + "}\n"
+    return choices_enum
+
+
+def __process_field(field_name, field, context, serializer, trim_serializer_output, camelize,
+                    enum_choices):
     '''
     Generates and returns a tuple representing the Typescript field name and Type.
     '''
+    ts_enum = None
     if hasattr(field, 'child'):
         is_many = True
         field_type = type(field.child)
@@ -101,11 +121,15 @@ def __process_field(field_name, field, context, serializer, trim_serializer_outp
             field_type.__name__, trim_serializer_output)
     elif field_type in __field_mappings[context]:
         ts_type = __field_mappings[context].get(field_type, 'any')
-    elif (context in __mapping_overrides) and (serializer in __mapping_overrides[context]) and field_name in __mapping_overrides[context][serializer]:
+    elif (context in __mapping_overrides) and (serializer in __mapping_overrides[context]) \
+            and field_name in __mapping_overrides[context][serializer]:
         ts_type = __mapping_overrides[context][serializer].get(
             field_name, 'any')
-    elif field_type == serializers.PrimaryKeyRelatedField: 
+    elif field_type == serializers.PrimaryKeyRelatedField:
         ts_type = "number | string"
+    elif hasattr(field, 'choices') and enum_choices:
+        ts_type = f"{''.join(x.title() for x in field_name.split('_'))}ChoiceEnum"
+        ts_enum = __map_choices_to_enum(ts_type, field_type, field.choices)
     elif hasattr(field, 'choices'):
         ts_type = __map_choices_to_union(field_type, field.choices)
     else:
@@ -117,10 +141,10 @@ def __process_field(field_name, field, context, serializer, trim_serializer_outp
         field_name_components = field_name.split("_")
         field_name = field_name_components[0] + "".join(x.title() for x in field_name_components[1:])
 
-    return (field_name, ts_type)
+    return field_name, ts_type, ts_enum
 
 
-def __get_ts_interface(serializer, context, trim_serializer_output, camelize):
+def __get_ts_interface_and_enums(serializer, context, trim_serializer_output, camelize, enum_choices):
     '''
     Generates and returns a Typescript Interface by iterating
     through the serializer fields of the DRF Serializer class
@@ -136,29 +160,50 @@ def __get_ts_interface(serializer, context, trim_serializer_output, camelize):
     else:
         fields = serializer._declared_fields.items()
     ts_fields = []
+    enums = []
     for key, value in fields:
-        property, type = __process_field(
-            key, value, context, serializer, trim_serializer_output, camelize)
+        ts_property, ts_type, ts_enum = __process_field(
+            key, value, context, serializer, trim_serializer_output, camelize, enum_choices)
+
+        if ts_enum is not None:
+            enums.append(ts_enum)
 
         if value.read_only or not value.required:
-            property = property + "?"
+            ts_property = ts_property + "?"
 
         if value.allow_null:
-            type = type + " | null"
+            ts_type = ts_type + " | null"
 
-        ts_fields.append(f"    {property}: {type};")
+        ts_fields.append(f"    {ts_property}: {ts_type};")
     collapsed_fields = '\n'.join(ts_fields)
-    return f'export interface {name} {{\n{collapsed_fields}\n}}\n\n'
+    return f'export interface {name} {{\n{collapsed_fields}\n}}\n\n', enums
 
 
-def __generate_interfaces(context, trim_serializer_output, camelize):
+def __generate_interfaces_and_enums(context, trim_serializer_output, camelize, enum_choices):
     if context not in __serializers:
         return []
-    return [__get_ts_interface(serializer, context, trim_serializer_output, camelize)
-            for serializer in __serializers[context]]
+    return [__get_ts_interface_and_enums(serializer, context, trim_serializer_output, camelize,
+                                         enum_choices) for serializer in __serializers[context]]
 
 
-def generate_ts(output_path, context='default', trim_serializer_output=False, camelize=False):
+def __get_enums_and_interfaces_from_generated(interfaces_enums):
+    '''
+    Get the interfaces and enums from the generated interfaces and enums.
+    Works by splitting the tuples into two lists, one for interfaces and one for enums.
+    The interfaces are not changed. The enums are compared such that there are no duplicates
+    between interfaces. Then the enums are returned in string format with blank lines in between.
+    '''
+    interfaces, enums = [list(tup) for tup in zip(*interfaces_enums)]
+    enums_string = ''
+    flat_enums = [item for sublist in enums for item in sublist]
+    if any(elem is not None for elem in flat_enums):
+        distinct_enums = sorted(list(set(list(filter(lambda x: x is not None, flat_enums)))))
+        enums_string = '\n'.join(distinct_enums) + '\n\n'
+    return enums_string, interfaces
+
+
+def generate_ts(output_path, context='default', trim_serializer_output=False, camelize=False,
+                enum_choices=False):
     '''
     When this function is called, a Typescript interface will be generated
     for each DRF Serializer in the serializers dictionary, depending on the
@@ -169,15 +214,19 @@ def generate_ts(output_path, context='default', trim_serializer_output=False, ca
     The Typescript interfaces will then be outputted to the file provided.
     '''
     with open(output_path, 'w') as output_file:
-        interfaces = __generate_interfaces(context, trim_serializer_output, camelize)
-        output_file.write(''.join(interfaces))
+        interfaces_enums = __generate_interfaces_and_enums(context, trim_serializer_output,
+                                                           camelize, enum_choices)
+        enums_string, interfaces = __get_enums_and_interfaces_from_generated(interfaces_enums)
+        output_file.write(enums_string + ''.join(interfaces))
 
 
-def get_ts(context='default', trim_serializer_output=False, camelize=False):
+def get_ts(context='default', trim_serializer_output=False, camelize=False, enum_choices=False):
     '''
-    Similar to generate_ts. But rather than outputting the generated 
-    interfaces to the specified file, will return the generated interfaces 
+    Similar to generate_ts. But rather than outputting the generated
+    interfaces to the specified file, will return the generated interfaces
     as a raw string.
     '''
-    interfaces = __generate_interfaces(context, trim_serializer_output, camelize)
-    return ''.join(interfaces)
+    interfaces_enums = __generate_interfaces_and_enums(context, trim_serializer_output, camelize,
+                                                       enum_choices)
+    enums_string, interfaces = __get_enums_and_interfaces_from_generated(interfaces_enums)
+    return enums_string + ''.join(interfaces)
