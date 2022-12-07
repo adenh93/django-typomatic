@@ -229,3 +229,55 @@ export interface Foo {
   someField: string;
 }
 ```
+
+#### TypeScript enums from ChoiceFields
+_django-typomatic_ also allows for generating an `enum` for a ChoiceField. The `enum` will follow the naming of `ModelFieldNameChoiceEnum` for a model field with the name `model_field_name`, note that the interface field still remains `model_field_name`.
+
+_main.py_
+
+```python
+from django_typomatic import ts_interface
+from rest_framework import serializers
+from django.db import models
+
+
+class ActionType(models.TextChoices):
+    ACTION1 = "Action1", ("Action1")
+    ACTION2 = "Action2", ("Action2")
+    ACTION3 = "Action3", ("Action3")
+
+
+class NumberType(models.IntegerChoices):
+    LOW = 1
+    MEDIUM = 2
+    HIGH = 3
+
+
+@ts_interface('enumChoices')
+class ChoiceSerializer(serializers.Serializer):
+    action = serializers.ChoiceField(choices=ActionType.choices)
+    num = serializers.ChoiceField(choices=NumberType.choices)
+
+```
+
+_output.ts_
+
+```typescript
+export enum ActionChoiceEnum {
+    ACTION1 = 'Action1',
+    ACTION2 = 'Action2',
+    ACTION3 = 'Action3',
+}
+
+export enum NumChoiceEnum {
+    LOW = 1,
+    MEDIUM = 2,
+    HIGH = 3,
+}
+
+
+export interface EnumChoiceSerializer {
+    action: ActionChoiceEnum;
+    num: NumChoiceEnum;
+}
+```

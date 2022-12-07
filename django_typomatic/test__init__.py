@@ -48,6 +48,12 @@ class ChoiceSerializer(serializers.Serializer):
     num = serializers.ChoiceField(choices=NumberType.choices)
 
 
+@ts_interface('enumChoices')
+class EnumChoiceSerializer(serializers.Serializer):
+    action = serializers.ChoiceField(choices=ActionType.choices)
+    num = serializers.ChoiceField(choices=NumberType.choices)
+
+
 def test_get_ts():
     expected = """export interface FooSerializer {
     some_field: number[];
@@ -109,4 +115,28 @@ def test_choices():
 
 """
     interfaces = get_ts('choices')
+    assert interfaces == expected
+
+
+def test_choices_enum():
+    expected = """export enum ActionChoiceEnum {
+    ACTION1 = 'Action1',
+    ACTION2 = 'Action2',
+    ACTION3 = 'Action3',
+}
+
+export enum NumChoiceEnum {
+    LOW = 1,
+    MEDIUM = 2,
+    HIGH = 3,
+}
+
+
+export interface EnumChoiceSerializer {
+    action: ActionChoiceEnum;
+    num: NumChoiceEnum;
+}
+
+"""
+    interfaces = get_ts('enumChoices', enum_choices=True)
     assert interfaces == expected
