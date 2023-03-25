@@ -3,7 +3,7 @@ import logging
 from rest_framework import serializers
 from rest_framework.fields import empty
 
-from .mappings import mappings
+from .mappings import mappings, format_mappings
 
 _LOG = logging.getLogger(f"django-typomatic.{__name__}")
 
@@ -224,22 +224,13 @@ def __get_annotations(field, ts_type):
         if getattr(field, 'max_length', None):
             annotations.append(f'    * @maxLength {field.max_length}')
 
-        type_mapping_format = {
-            "<class 'rest_framework.fields.EmailField'>": '* @format email',
-            "<class 'rest_framework.fields.URLField'>": '* @format url',
-            "<class 'rest_framework.fields.UUIDField'>": '* @format uuid',
-            "<class 'rest_framework.fields.DateTimeField'>": '* @format date-time',
-            "<class 'rest_framework.fields.DateField'>": '* @format date',
-            "<class 'rest_framework.fields.FloatField'>": '* @format double',
-        }
+        field_type = type(field)
 
-        field_type = str(type(field))
-
-        if field_type in type_mapping_format:
-            annotations.append(f'    {type_mapping_format[field_type]}')
+        if field_type in format_mappings:
+            annotations.append(f'   * @format {format_mappings[field_type]}')
 
         if default is not None and 'number | string' not in ts_type:
-            annotations.append(f'    @default "{default}"')
+            annotations.append(f'    * @default "{default}"')
 
     if 'number' in ts_type:
         if getattr(field, 'min_value', None):
@@ -248,7 +239,7 @@ def __get_annotations(field, ts_type):
             annotations.append(f'    * @maximum {field.max_value}')
 
         if default is not None:
-            annotations.append(f'    @default {default}')
+            annotations.append(f'    * @default {default}')
 
     annotations.append('    */')
 
