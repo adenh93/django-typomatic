@@ -214,7 +214,7 @@ def __get_enums_and_interfaces_from_generated(interfaces_enums):
 def __get_annotations(field, ts_type):
     annotations = []
     annotations.append('    /**')
-    annotations.append(f'    {field.label}')
+    annotations.append(f'    * {field.label}')
 
     default = field.default if field.default != empty else None
 
@@ -227,7 +227,7 @@ def __get_annotations(field, ts_type):
         field_type = type(field)
 
         if field_type in format_mappings:
-            annotations.append(f'   * @format {format_mappings[field_type]}')
+            annotations.append(f'    * @format {format_mappings[field_type]}')
 
         if default is not None and 'number | string' not in ts_type:
             annotations.append(f'    * @default "{default}"')
