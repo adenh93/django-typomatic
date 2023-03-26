@@ -150,7 +150,7 @@ def __process_field(field_name, field, context, serializer, trim_serializer_outp
     return field_name, ts_type, ts_enum
 
 
-def __get_ts_interface_and_enums(serializer, context, trim_serializer_output, camelize, enum_choices):
+def __get_ts_interface_and_enums(serializer, context, trim_serializer_output, camelize, enum_choices, annotations):
     '''
     Generates and returns a Typescript Interface by iterating
     through the serializer fields of the DRF Serializer class
@@ -180,19 +180,20 @@ def __get_ts_interface_and_enums(serializer, context, trim_serializer_output, ca
         if value.allow_null:
             ts_type = ts_type + " | null"
 
-        annotations = __get_annotations(value, ts_type)
+        if annotations:
+            annotations_list = __get_annotations(value, ts_type)
+            ts_fields.append('\n'.join(annotations_list))
 
-        ts_fields.append('\n'.join(annotations))
         ts_fields.append(f"    {ts_property}: {ts_type};")
     collapsed_fields = '\n'.join(ts_fields)
     return f'export interface {name} {{\n{collapsed_fields}\n}}\n\n', enums
 
 
-def __generate_interfaces_and_enums(context, trim_serializer_output, camelize, enum_choices):
+def __generate_interfaces_and_enums(context, trim_serializer_output, camelize, enum_choices, annotations):
     if context not in __serializers:
         return []
     return [__get_ts_interface_and_enums(serializer, context, trim_serializer_output, camelize,
-                                         enum_choices) for serializer in __serializers[context]]
+                                         enum_choices, annotations) for serializer in __serializers[context]]
 
 
 def __get_enums_and_interfaces_from_generated(interfaces_enums):
@@ -247,7 +248,7 @@ def __get_annotations(field, ts_type):
 
 
 def generate_ts(output_path, context='default', trim_serializer_output=False, camelize=False,
-                enum_choices=False):
+                enum_choices=False, annotations=False):
     '''
     When this function is called, a Typescript interface will be generated
     for each DRF Serializer in the serializers dictionary, depending on the
@@ -259,18 +260,18 @@ def generate_ts(output_path, context='default', trim_serializer_output=False, ca
     '''
     with open(output_path, 'w') as output_file:
         interfaces_enums = __generate_interfaces_and_enums(context, trim_serializer_output,
-                                                           camelize, enum_choices)
+                                                           camelize, enum_choices, annotations)
         enums_string, interfaces = __get_enums_and_interfaces_from_generated(interfaces_enums)
         output_file.write(enums_string + ''.join(interfaces))
 
 
-def get_ts(context='default', trim_serializer_output=False, camelize=False, enum_choices=False):
+def get_ts(context='default', trim_serializer_output=False, camelize=False, enum_choices=False, annotations=False):
     '''
     Similar to generate_ts. But rather than outputting the generated
     interfaces to the specified file, will return the generated interfaces
     as a raw string.
     '''
     interfaces_enums = __generate_interfaces_and_enums(context, trim_serializer_output, camelize,
-                                                       enum_choices)
+                                                       enum_choices, annotations)
     enums_string, interfaces = __get_enums_and_interfaces_from_generated(interfaces_enums)
     return enums_string + ''.join(interfaces)
