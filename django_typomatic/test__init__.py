@@ -30,6 +30,19 @@ class OtherSerializer(serializers.Serializer):
     field = serializers.IntegerField()
 
 
+@ts_interface(context='annotations')
+class OtherSerializer(serializers.Serializer):
+    text_field = serializers.CharField(min_length=10, max_length=100, label='Huge Text Field')
+    number_field = serializers.IntegerField(min_value=1, max_value=50)
+    email_field = serializers.EmailField()
+    date_field = serializers.DateField()
+    datetime_field = serializers.DateTimeField()
+    time_field = serializers.TimeField()
+    uuid_field = serializers.UUIDField()
+    url_field = serializers.URLField(default='https://google.com')
+    float_field = serializers.FloatField()
+
+
 class ActionType(models.TextChoices):
     ACTION1 = "Action1", ("Action1")
     ACTION2 = "Action2", ("Action2")
@@ -88,6 +101,7 @@ export interface Bar {
 """
     interfaces = get_ts('internal', trim_serializer_output=True)
     assert interfaces == expected
+
 
 def test_camlize():
     expected = """export interface FooSerializer {
@@ -170,3 +184,53 @@ export interface EnumChoiceSerializer {
 """
     interfaces = get_ts('enumChoices', enum_choices=True, enum_values=True)
     assert interfaces == expected
+
+
+def test_annotations():
+    expected = """export interface OtherSerializer {
+    /**
+    * @label Huge Text Field
+    * @minLength 10
+    * @maxLength 100
+    */
+    text_field: string;
+    /**
+    * @minimum 1
+    * @maximum 50
+    */
+    number_field: number;
+    /**
+    * @format email
+    */
+    email_field: string;
+    /**
+    * @format date
+    */
+    date_field: string;
+    /**
+    * @format date-time
+    */
+    datetime_field: string;
+    /**
+    * @format time
+    */
+    time_field: string;
+    /**
+    * @format uuid
+    */
+    uuid_field: string;
+    /**
+    * @default "https://google.com"
+    * @format url
+    */
+    url_field?: string;
+    /**
+    * @format double
+    */
+    float_field: number;
+}
+
+"""
+    interfaces = get_ts('annotations', annotations=True)
+    assert interfaces == expected
+
