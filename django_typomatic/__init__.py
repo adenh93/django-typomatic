@@ -1,4 +1,5 @@
 import logging
+from pathlib import Path
 
 from rest_framework import serializers
 from rest_framework.fields import empty
@@ -84,7 +85,7 @@ def __map_choices_to_union(field_type, choices):
     '''
     if not choices:
         _LOG.warning(f'No choices specified for Serializer Field: {field_type}')
-        return 'any'
+        return 'unknown'
 
     return ' | '.join(f'"{key}"' if type(key) == str else str(key) for key in choices.keys())
 
@@ -95,7 +96,7 @@ def __map_choices_to_enum(enum_name, field_type, choices):
     '''
     if not choices:
         _LOG.warning(f'No choices specified for Serializer Field: {field_type}')
-        return 'any'
+        return 'unknown'
 
     choices_enum = f"export enum {enum_name} {{\n"
     for key, value in choices.items():
@@ -126,11 +127,11 @@ def __process_field(field_name, field, context, serializer, trim_serializer_outp
         ts_type = __get_trimmed_name(
             field_type.__name__, trim_serializer_output)
     elif field_type in __field_mappings[context]:
-        ts_type = __field_mappings[context].get(field_type, 'any')
+        ts_type = __field_mappings[context].get(field_type, 'unknown')
     elif (context in __mapping_overrides) and (serializer in __mapping_overrides[context]) \
             and field_name in __mapping_overrides[context][serializer]:
         ts_type = __mapping_overrides[context][serializer].get(
-            field_name, 'any')
+            field_name, 'unknown')
     elif field_type == serializers.PrimaryKeyRelatedField:
         ts_type = "number | string"
     elif hasattr(field, 'choices') and enum_choices:
@@ -139,7 +140,7 @@ def __process_field(field_name, field, context, serializer, trim_serializer_outp
     elif hasattr(field, 'choices'):
         ts_type = __map_choices_to_union(field_type, field.choices)
     else:
-        ts_type = mappings.get(field_type, 'any')
+        ts_type = mappings.get(field_type, 'unknown')
     if is_many:
         ts_type += '[]'
 
@@ -259,6 +260,10 @@ def generate_ts(output_path, context='default', trim_serializer_output=False, ca
 
     The Typescript interfaces will then be outputted to the file provided.
     '''
+
+    output_path = Path(output_path)
+    output_path.parent.mkdir(exist_ok=True, parents=True)
+
     with open(output_path, 'w') as output_file:
         interfaces_enums = __generate_interfaces_and_enums(context, trim_serializer_output,
                                                            camelize, enum_choices, annotations)
