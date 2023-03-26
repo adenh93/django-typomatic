@@ -214,7 +214,7 @@ def __get_enums_and_interfaces_from_generated(interfaces_enums):
 def __get_annotations(field, ts_type):
     annotations = []
     annotations.append('    /**')
-    annotations.append(f'    * {field.label}')
+    annotations.append(f'    * @label {field.label}')
 
     default = field.default if field.default != empty else None
 
