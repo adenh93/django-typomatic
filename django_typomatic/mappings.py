@@ -1,6 +1,5 @@
 from rest_framework import serializers
 
-
 mappings = {
     serializers.BooleanField: 'boolean',
     serializers.CharField: 'string',
@@ -19,4 +18,14 @@ mappings = {
     serializers.TimeField: 'string',
     serializers.DurationField: 'string',
     serializers.DictField: 'Map'
+}
+
+format_mappings = {
+    serializers.EmailField: 'email',
+    serializers.URLField: 'url',
+    serializers.UUIDField: 'uuid',
+    serializers.DateTimeField: 'date-time',
+    serializers.DateField: 'date',
+    serializers.TimeField: 'time',
+    serializers.FloatField: 'double',
 }

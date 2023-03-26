@@ -1,9 +1,12 @@
 import logging
 from pathlib import Path
 
-from rest_framework import serializers
 from .mappings import mappings
 
+from rest_framework import serializers
+from rest_framework.fields import empty
+
+from .mappings import mappings, format_mappings
 
 _LOG = logging.getLogger(f"django-typomatic.{__name__}")
 
@@ -28,6 +31,7 @@ def ts_field(ts_type: str, context='default'):
         def to_representation(self, obj):
             pass
     '''
+
     def decorator(cls):
         if issubclass(cls, serializers.Field):
             if context not in __field_mappings:
@@ -35,6 +39,7 @@ def ts_field(ts_type: str, context='default'):
             if cls not in __field_mappings[context]:
                 __field_mappings[context][cls] = ts_type
         return cls
+
     return decorator
 
 
@@ -53,6 +58,7 @@ def ts_interface(context='default', mapping_overrides=None):
         bar = serializer.IntegerField()
         baz = serializer.ReadOnlyField(source='baz_property')
     '''
+
     def decorator(cls):
         if issubclass(cls, serializers.Serializer):
             if context not in __field_mappings:
@@ -66,6 +72,7 @@ def ts_interface(context='default', mapping_overrides=None):
                 if cls not in __mapping_overrides[context]:
                     __mapping_overrides[context][cls] = mapping_overrides
         return cls
+
     return decorator
 
 
@@ -176,6 +183,9 @@ def __get_ts_interface_and_enums(serializer, context, trim_serializer_output, ca
         if value.allow_null:
             ts_type = ts_type + " | null"
 
+        annotations = __get_annotations(value, ts_type)
+
+        ts_fields.append('\n'.join(annotations))
         ts_fields.append(f"    {ts_property}: {ts_type};")
     collapsed_fields = '\n'.join(ts_fields)
     return f'export interface {name} {{\n{collapsed_fields}\n}}\n\n', enums
@@ -202,6 +212,41 @@ def __get_enums_and_interfaces_from_generated(interfaces_enums):
         distinct_enums = sorted(list(set(list(filter(lambda x: x is not None, flat_enums)))))
         enums_string = '\n'.join(distinct_enums) + '\n\n'
     return enums_string, interfaces
+
+
+def __get_annotations(field, ts_type):
+    annotations = []
+    annotations.append('    /**')
+    annotations.append(f'    * @label {field.label}')
+
+    default = field.default if field.default != empty else None
+
+    if 'string' in ts_type:
+        if getattr(field, 'min_length', None):
+            annotations.append(f'    * @minLength {field.min_length}')
+        if getattr(field, 'max_length', None):
+            annotations.append(f'    * @maxLength {field.max_length}')
+
+        field_type = type(field)
+
+        if field_type in format_mappings:
+            annotations.append(f'    * @format {format_mappings[field_type]}')
+
+        if default is not None and 'number | string' not in ts_type:
+            annotations.append(f'    * @default "{default}"')
+
+    if 'number' in ts_type:
+        if getattr(field, 'min_value', None):
+            annotations.append(f'    * @minimum {field.min_value}')
+        if getattr(field, 'max_value', None):
+            annotations.append(f'    * @maximum {field.max_value}')
+
+        if default is not None:
+            annotations.append(f'    * @default {default}')
+
+    annotations.append('    */')
+
+    return annotations
 
 
 def generate_ts(output_path, context='default', trim_serializer_output=False, camelize=False,
