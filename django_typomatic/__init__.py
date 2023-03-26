@@ -115,7 +115,8 @@ def __map_choices_to_enum_values(enum_name, field_type, choices):
         if type(key) == str:
             choices_enum = choices_enum + f"    {str(key).replace(' ', '_')} = '{value}',\n"
         else:
-            choices_enum = choices_enum + f"    {str(key).replace(' ', '_')} = {value},\n"
+            "Number enums not need it"
+            return None
     choices_enum = choices_enum + "}\n"
 
     return choices_enum
