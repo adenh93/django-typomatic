@@ -1,4 +1,6 @@
 import logging
+from pathlib import Path
+
 from rest_framework import serializers
 from .mappings import mappings
 
@@ -213,6 +215,10 @@ def generate_ts(output_path, context='default', trim_serializer_output=False, ca
 
     The Typescript interfaces will then be outputted to the file provided.
     '''
+
+    output_path = Path(output_path)
+    output_path.parent.mkdir(exist_ok=True, parents=True)
+
     with open(output_path, 'w') as output_file:
         interfaces_enums = __generate_interfaces_and_enums(context, trim_serializer_output,
                                                            camelize, enum_choices)
