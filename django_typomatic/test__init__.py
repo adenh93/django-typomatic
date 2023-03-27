@@ -156,7 +156,7 @@ export interface EnumChoiceSerializer {
     assert interfaces == expected
 
 
-def test_choices_enum_values():
+def test_enum_values_with_enum_choices():
     expected = """export enum ActionChoiceEnum {
     ACTION1 = 'Action1',
     ACTION2 = 'Action2',
@@ -234,3 +234,20 @@ def test_annotations():
     interfaces = get_ts('annotations', annotations=True)
     assert interfaces == expected
 
+
+def test_enum_values_without_enum_choices():
+    expected = """export enum ActionChoiceEnumValues {
+    Action1 = 'Action1',
+    Action2 = 'Action2',
+    Action3 = 'Action3',
+}
+
+
+export interface EnumChoiceSerializer {
+    action: "Action1" | "Action2" | "Action3";
+    num: 1 | 2 | 3;
+}
+
+"""
+    interfaces = get_ts('enumChoices', enum_values=True, enum_choices=False)
+    assert interfaces == expected

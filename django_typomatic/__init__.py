@@ -164,6 +164,9 @@ def __process_field(field_name, field, context, serializer, trim_serializer_outp
             ts_enum = __map_choices_to_enum(ts_type, field_type, field.choices)
         if enum_values:
             ts_enum_value = __map_choices_to_enum_values(f'{ts_type}Values', field_type, field.choices)
+
+            if not enum_choices:
+                ts_type = __map_choices_to_union(field_type, field.choices)
     elif hasattr(field, 'choices'):
         ts_type = __map_choices_to_union(field_type, field.choices)
     else:
@@ -178,7 +181,8 @@ def __process_field(field_name, field, context, serializer, trim_serializer_outp
     return field_name, ts_type, ts_enum, ts_enum_value
 
 
-def __get_ts_interface_and_enums(serializer, context, trim_serializer_output, camelize, enum_choices, enum_values, annotations):
+def __get_ts_interface_and_enums(serializer, context, trim_serializer_output, camelize, enum_choices, enum_values,
+                                 annotations):
     '''
     Generates and returns a Typescript Interface by iterating
     through the serializer fields of the DRF Serializer class
@@ -224,7 +228,8 @@ def __generate_interfaces_and_enums(context, trim_serializer_output, camelize, e
     if context not in __serializers:
         return []
     return [__get_ts_interface_and_enums(serializer, context, trim_serializer_output, camelize,
-                                         enum_choices, enum_values, annotations) for serializer in __serializers[context]]
+                                         enum_choices, enum_values, annotations) for serializer in
+            __serializers[context]]
 
 
 def __get_enums_and_interfaces_from_generated(interfaces_enums):
@@ -301,7 +306,8 @@ def generate_ts(output_path, context='default', trim_serializer_output=False, ca
         output_file.write(enums_string + ''.join(interfaces))
 
 
-def get_ts(context='default', trim_serializer_output=False, camelize=False, enum_choices=False, enum_values=False, annotations=False):
+def get_ts(context='default', trim_serializer_output=False, camelize=False, enum_choices=False, enum_values=False,
+           annotations=False):
     '''
     Similar to generate_ts. But rather than outputting the generated
     interfaces to the specified file, will return the generated interfaces
