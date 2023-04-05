@@ -24,7 +24,7 @@ class Command(BaseCommand):
         parser.add_argument(
             '--serializers',
             '-s',
-            help='Serializers enumeration'
+            help='Serializers enumeration '
                  'formats: module_name.SerializerName | module_name',
             nargs="*",
             type=str,
