@@ -18,7 +18,7 @@ setuptools.setup(
     keywords=['Django', 'Django Rest Framework',
               'DRF', 'Typescript', 'Python'],
 
-    packages=['django_typomatic'],
+    packages=['django_typomatic', 'django_typomatic.management'],
     include_package_data=True,
     zip_safe=False,
     platforms='any',
