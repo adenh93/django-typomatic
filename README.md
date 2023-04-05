@@ -4,14 +4,16 @@ _A simple solution for generating Typescript interfaces from your [Django Rest F
 
 Since I now require a simple package to generate Typescript interfaces for Django Rest Framework serializers, I've decided to port over my [Typemallow](https://github.com/adenh93/typemallow/) package for use with DRF serializers!
 
-### Usage:
+## Usage:
 
 _Using django-typomatic is just as simple!_
 
 First, install the package
 `pip install django-typomatic`
 
-Next, for your Django Rest Framework serializers that you wish to generate Typescript interfaces for, simply import `ts_interface` and `generate_ts` from the `django_typomatic` module, and add the `@ts_interface()` class decorator to your Django Rest Framework serializer class.
+### Option 1: Decorators
+
+For your Django Rest Framework serializers that you wish to generate Typescript interfaces for, simply import `ts_interface` and `generate_ts` from the `django_typomatic` module, and add the `@ts_interface()` class decorator to your Django Rest Framework serializer class.
 
 All that is required to generate your Typescript interfaces is to call the `generate_ts()` function, and provide a filepath as a parameter to output the result.
 
@@ -136,7 +138,7 @@ export interface ActionSerializer {
 }
 ```
 
-### Extended Usage:
+#### Extended Usage:
 
 The `@ts_interface()` decorator function accepts an optional parameter, _context_, which defaults to... well... 'default'.
 
@@ -281,3 +283,46 @@ export interface EnumChoiceSerializer {
     num: NumChoiceEnum;
 }
 ```
+
+## Option 2: CLI (Preferred)
+
+Since version 2.1, you can now generate all interfaces via a CLI. This will be the preferred method going forward, as you will no longer need to decorate your serializers, or manually call the `generate_ts` function, resulting in less complexity overall.
+
+Special thanks to @bigpe for brewing up the first version of this CLI!
+
+### Usage
+
+```
+--serializers [SERIALIZERS ...], -s [SERIALIZERS ...]
+                         Serializers enumeration formats: module_name.SerializerName | module_name
+   --all Generate TS types for all project serializers
+   --trim, -t Trim "serializer" from type name
+   --camelize, -c Camelize field names
+   --annotations, -a Add js doc annotations for validations (eg. for Zod)
+   --enum_choices, -ec Add choices to external enum type instead union
+   --enum_values, -ev Add enum to obtain display name for choices field
+```
+
+Using the new `generate_ts` management command, you can fine tune the generation of your interfaces similarly to how you would via the decorator method, with some additional functionality. For example, you can call the command with the `--all` flag and get all the generated types to the folder specified (they will be grouped by the application name, all external applications will be excluded, only the project applications).
+
+You can also generate modules separately, as an example, `-s user` will restrict generation to all serializers in the `user` application, and `-s user.UserSerializer` will restrict generation to just the `UserSerializer` serializer belonging to the `user` application.
+
+### Examples
+
+_Generate TS for `user` app_
+
+`./manage.py generate_ts -s user`
+
+_Generate TS for specific serializer from user app_
+
+`./manage.py generate_ts -s user.UserSerializer`
+
+_Generate TS for many apps or serializers_
+
+`./manage.py generate_ts -s user.UserSerializer group role.RoleSerializer role.RoleListSerializer`
+
+_Generate TS for user app with annotations, choices enums, trim serializer, camelize, enum values and custom output path_
+
+`./manage.py generate_ts -s user -a -ec -t -c -ev -o "./custom_folder/"`
+
+
