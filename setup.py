@@ -18,7 +18,7 @@ setuptools.setup(
     keywords=['Django', 'Django Rest Framework',
               'DRF', 'Typescript', 'Python'],
 
-    packages=setuptools.find_packages()
+    packages=setuptools.find_packages(),
     include_package_data=True,
     zip_safe=False,
     platforms='any',
