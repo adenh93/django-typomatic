@@ -288,6 +288,8 @@ export interface EnumChoiceSerializer {
 
 Since version 2.1, you can now generate all interfaces via a CLI. This will be the preferred method going forward, as you will no longer need to decorate your serializers, or manually call the `generate_ts` function, resulting in less complexity overall.
 
+**NOTE:** In order to use the CLI, you will need to add `django-typomatic` to `INSTALLED_APPS`.
+
 Special thanks to @bigpe for brewing up the first version of this CLI!
 
 ### Usage
