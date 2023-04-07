@@ -19,7 +19,6 @@ mappings = {
     serializers.DateField: 'string',
     serializers.TimeField: 'string',
     serializers.DurationField: 'string',
-    serializers.DictField: 'Map'
 }
 
 format_mappings = {
@@ -37,6 +36,5 @@ primitives_mapping = {
     int: 'number',
     float: 'number',
     bool: 'boolean',
-    dict: 'Map',
     None: 'null'
 }
