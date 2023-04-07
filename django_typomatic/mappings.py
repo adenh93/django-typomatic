@@ -7,6 +7,7 @@ mappings = {
     serializers.RegexField: 'string',
     serializers.SlugField: 'string',
     serializers.URLField: 'string',
+    serializers.DictField: 'string',
     serializers.UUIDField: 'string',
     serializers.FilePathField: 'string',
     serializers.FileField: 'File',
@@ -36,5 +37,6 @@ primitives_mapping = {
     int: 'number',
     float: 'number',
     bool: 'boolean',
+    dict: 'string',
     None: 'null'
 }
