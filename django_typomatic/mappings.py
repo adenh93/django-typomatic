@@ -9,6 +9,8 @@ mappings = {
     serializers.URLField: 'string',
     serializers.UUIDField: 'string',
     serializers.FilePathField: 'string',
+    serializers.FileField: 'File',
+    serializers.ImageField: 'File',
     serializers.IPAddressField: 'string',
     serializers.IntegerField: 'number',
     serializers.FloatField: 'number',
@@ -28,4 +30,13 @@ format_mappings = {
     serializers.DateField: 'date',
     serializers.TimeField: 'time',
     serializers.FloatField: 'double',
+}
+
+primitives_mapping = {
+    str: 'string',
+    int: 'number',
+    float: 'number',
+    bool: 'boolean',
+    dict: 'Map',
+    None: 'null'
 }
