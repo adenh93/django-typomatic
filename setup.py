@@ -6,7 +6,7 @@ with open('README.md') as file:
 
 setuptools.setup(
     name="django-typomatic",
-    version="2.1.0",
+    version="2.1.1",
     url="https://github.com/adenh93/django-typomatic",
 
     author="Aden Herold",
@@ -18,7 +18,7 @@ setuptools.setup(
     keywords=['Django', 'Django Rest Framework',
               'DRF', 'Typescript', 'Python'],
 
-    packages=['django_typomatic', 'django_typomatic.management'],
+    packages=setuptools.find_packages(),
     include_package_data=True,
     zip_safe=False,
     platforms='any',
