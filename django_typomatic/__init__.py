@@ -9,7 +9,7 @@ from rest_framework.fields import empty
 from django.db.models.enums import Choices
 import inspect
 
-from typing import Optional, List, get_type_hints, get_origin, get_args
+from typing import get_type_hints, get_origin, get_args
 
 from .mappings import mappings, format_mappings, primitives_mapping
 
