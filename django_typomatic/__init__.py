@@ -364,7 +364,7 @@ def __get_annotations(field, ts_type):
 
     annotations.append('    */')
 
-    # Clear annotations header and footer if nothinc to include
+    # Clear annotations header and footer if nothing to include
     if len(annotations) == 2:
         annotations = []
 
