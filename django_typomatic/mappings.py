@@ -7,8 +7,11 @@ mappings = {
     serializers.RegexField: 'string',
     serializers.SlugField: 'string',
     serializers.URLField: 'string',
+    serializers.DictField: 'string',
     serializers.UUIDField: 'string',
     serializers.FilePathField: 'string',
+    serializers.FileField: 'File',
+    serializers.ImageField: 'File',
     serializers.IPAddressField: 'string',
     serializers.IntegerField: 'number',
     serializers.FloatField: 'number',
@@ -17,7 +20,6 @@ mappings = {
     serializers.DateField: 'string',
     serializers.TimeField: 'string',
     serializers.DurationField: 'string',
-    serializers.DictField: 'Map'
 }
 
 format_mappings = {
@@ -28,4 +30,13 @@ format_mappings = {
     serializers.DateField: 'date',
     serializers.TimeField: 'time',
     serializers.FloatField: 'double',
+}
+
+primitives_mapping = {
+    str: 'string',
+    int: 'number',
+    float: 'number',
+    bool: 'boolean',
+    dict: 'string',
+    None: 'null'
 }

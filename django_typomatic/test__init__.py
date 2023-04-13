@@ -1,4 +1,7 @@
 import io
+import random
+from typing import List
+
 import pytest
 from rest_framework import serializers
 from django.db import models
@@ -41,6 +44,7 @@ class OtherSerializer(serializers.Serializer):
     uuid_field = serializers.UUIDField()
     url_field = serializers.URLField(default='https://google.com')
     float_field = serializers.FloatField()
+    empty_annotation = serializers.CharField()
 
 
 class ActionType(models.TextChoices):
@@ -65,6 +69,40 @@ class ChoiceSerializer(serializers.Serializer):
 class EnumChoiceSerializer(serializers.Serializer):
     action = serializers.ChoiceField(choices=ActionType.choices)
     num = serializers.ChoiceField(choices=NumberType.choices)
+
+
+@ts_interface('files')
+class FileSerializer(serializers.Serializer):
+    image = serializers.ImageField()
+    file = serializers.FileField()
+
+
+@ts_interface('methodFields')
+class MethodFieldsSerializer(serializers.Serializer):
+    integer_field = serializers.SerializerMethodField()
+    string_field = serializers.SerializerMethodField()
+    float_field = serializers.SerializerMethodField()
+    choice_field = serializers.SerializerMethodField()
+    multiple_return = serializers.SerializerMethodField()
+    various_type_return = serializers.SerializerMethodField()
+
+    def get_integer_field(self) -> int:
+        return 5
+
+    def get_string_field(self) -> str:
+        return 'test'
+
+    def get_float_field(self) -> float:
+        return 1.1
+
+    def get_choice_field(self) -> ActionType:
+        return ActionType.ACTION1
+
+    def get_multiple_return(self) -> List[int]:
+        return [1, 2]
+
+    def get_various_type_return(self) -> [int, str]:
+        return random.choice([1, 'test'])
 
 
 def test_get_ts():
@@ -228,6 +266,7 @@ def test_annotations():
     * @format double
     */
     float_field: number;
+    empty_annotation: string;
 }
 
 """
@@ -250,4 +289,37 @@ export interface EnumChoiceSerializer {
 
 """
     interfaces = get_ts('enumChoices', enum_values=True, enum_choices=False)
+    assert interfaces == expected
+
+
+def test_file_serializer():
+    expected = """export interface FileSerializer {
+    image: File;
+    file: File;
+}
+
+"""
+    interfaces = get_ts('files')
+    assert interfaces == expected
+
+
+def test_method_fields_serializer():
+    expected = """export enum ChoiceFieldChoiceEnum {
+    ACTION1 = 'Action1',
+    ACTION2 = 'Action2',
+    ACTION3 = 'Action3',
+}
+
+
+export interface MethodFieldsSerializer {
+    integer_field?: number;
+    string_field?: string;
+    float_field?: number;
+    choice_field?: ChoiceFieldChoiceEnum;
+    multiple_return?: number[];
+    various_type_return?: number | string;
+}
+
+"""
+    interfaces = get_ts('methodFields', enum_choices=True)
     assert interfaces == expected

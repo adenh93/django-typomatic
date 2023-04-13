@@ -6,7 +6,12 @@ from .mappings import mappings
 from rest_framework import serializers
 from rest_framework.fields import empty
 
-from .mappings import mappings, format_mappings
+from django.db.models.enums import Choices
+import inspect
+
+from typing import get_type_hints, get_origin, get_args
+
+from .mappings import mappings, format_mappings, primitives_mapping
 
 _LOG = logging.getLogger(f"django-typomatic.{__name__}")
 
@@ -147,6 +152,7 @@ def __process_field(field_name, field, context, serializer, trim_serializer_outp
     else:
         is_many = False
         field_type = type(field)
+
     if field_type in __serializers[context]:
         ts_type = __get_trimmed_name(
             field_type.__name__, trim_serializer_output)
@@ -159,16 +165,45 @@ def __process_field(field_name, field, context, serializer, trim_serializer_outp
     elif field_type == serializers.PrimaryKeyRelatedField:
         ts_type = "number | string"
     elif (hasattr(field, 'choices') and enum_choices) or (hasattr(field, 'choices') and enum_values):
-        ts_type = f"{''.join(x.title() for x in field_name.split('_'))}ChoiceEnum"
-        if enum_choices:
-            ts_enum = __map_choices_to_enum(ts_type, field_type, field.choices)
-        if enum_values:
-            ts_enum_value = __map_choices_to_enum_values(f'{ts_type}Values', field_type, field.choices)
-
-            if not enum_choices:
-                ts_type = __map_choices_to_union(field_type, field.choices)
+        ts_type, ts_enum, ts_enum_value = __process_choice_field(
+            field_name, field_type, field.choices, enum_choices, enum_values
+        )
     elif hasattr(field, 'choices'):
         ts_type = __map_choices_to_union(field_type, field.choices)
+    elif field_type == serializers.SerializerMethodField:
+        types = []
+        field_function = getattr(serializer, f'get_{field_name}')
+        return_type = get_type_hints(field_function).get('return')
+        is_generic_type = hasattr(return_type, '__origin__')
+        many = False
+
+        # TODO type pass recursively to represent something like a list from a list e.g. List[List[int]]
+        if is_generic_type:
+            return_type, many = __process_generic_type(return_type)
+
+        if isinstance(return_type, list) or isinstance(return_type, tuple) or isinstance(return_type, set):
+            return_types = return_type
+
+            for return_type in return_types:
+                many = False
+                is_generic_type = hasattr(return_type, '__origin__')
+
+                if is_generic_type:
+                    return_type, many = __process_generic_type(return_type)
+
+                ts_type, ts_enum, ts_enum_value = __process_method_field(
+                    field_name, field_type, return_type, enum_choices, enum_values, many
+                )
+                types.append(ts_type)
+        else:
+            ts_type, ts_enum, ts_enum_value = __process_method_field(
+                field_name, field_type, return_type, enum_choices, enum_values, many
+            )
+            types.append(ts_type)
+
+        # Clear duplicate types
+        types = list(dict.fromkeys(types))
+        ts_type = " | ".join(types)
     else:
         ts_type = mappings.get(field_type, 'any')
     if is_many:
@@ -179,6 +214,53 @@ def __process_field(field_name, field, context, serializer, trim_serializer_outp
         field_name = field_name_components[0] + "".join(x.title() for x in field_name_components[1:])
 
     return field_name, ts_type, ts_enum, ts_enum_value
+
+
+def __process_generic_type(return_type):
+    origin = get_origin(return_type)
+    args = get_args(return_type)
+    is_many = False
+
+    if origin == list or origin == tuple or origin == set:
+        is_many = True
+        return_type = args[0]
+    return return_type, is_many
+
+
+def __process_choice_field(field_name, field_type, choices, enum_choices, enum_values):
+    ts_enum = None
+    ts_enum_value = None
+
+    ts_type = f"{''.join(x.title() for x in field_name.split('_'))}ChoiceEnum"
+    if enum_choices:
+        ts_enum = __map_choices_to_enum(ts_type, field_type, choices)
+    if enum_values:
+        ts_enum_value = __map_choices_to_enum_values(f'{ts_type}Values', field_type, choices)
+
+        if not enum_choices:
+            ts_type = __map_choices_to_union(field_type, choices)
+    return ts_type, ts_enum, ts_enum_value
+
+
+def __process_method_field(field_name, field_type, return_type, enum_choices, enum_values, many=False):
+    ts_enum = None
+    ts_enum_value = None
+
+    if inspect.isclass(return_type) and issubclass(return_type, Choices):
+        choices = {key: value for key, value in return_type.choices}
+
+        ts_type, ts_enum, ts_enum_value = __process_choice_field(
+            field_name, field_type, choices, enum_choices, enum_values
+        )
+
+        if not enum_choices:
+            ts_type = __map_choices_to_union(field_type, choices)
+        return ts_type, ts_enum, ts_enum_value
+
+    ts_type = primitives_mapping.get(return_type, 'any')
+    ts_type = ts_type if not many else f'{ts_type}[]'
+
+    return ts_type, ts_enum, ts_enum_value
 
 
 def __get_ts_interface_and_enums(serializer, context, trim_serializer_output, camelize, enum_choices, enum_values,
@@ -217,7 +299,8 @@ def __get_ts_interface_and_enums(serializer, context, trim_serializer_output, ca
 
         if annotations:
             annotations_list = __get_annotations(value, ts_type)
-            ts_fields.append('\n'.join(annotations_list))
+            if annotations_list:
+                ts_fields.append('\n'.join(annotations_list))
 
         ts_fields.append(f"    {ts_property}: {ts_type};")
     collapsed_fields = '\n'.join(ts_fields)
@@ -280,6 +363,10 @@ def __get_annotations(field, ts_type):
         annotations.append(f'    * @format {format_mappings[field_type]}')
 
     annotations.append('    */')
+
+    # Clear annotations header and footer if nothing to include
+    if len(annotations) == 2:
+        annotations = []
 
     return annotations
 
