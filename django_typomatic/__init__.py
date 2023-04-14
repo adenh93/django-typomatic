@@ -203,10 +203,10 @@ def __process_field(field_name, field, context, serializer, trim_serializer_outp
             )
 
             if issubclass(return_type, BaseSerializer):
-                is_external_serializer = return_type.__module__.replace('.serializers', '') == context
+                is_external_serializer = not return_type.__module__.replace('.serializers', '') == context
                 is_serializer_type = True
 
-                if is_external_serializer:
+                if is_external_serializer and return_type not in __serializers.get(context, []):
                     # TODO import external interface, not duplicate
                     # Include external Interface
                     ts_interface(context=context)(return_type)
