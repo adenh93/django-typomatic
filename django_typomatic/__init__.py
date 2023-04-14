@@ -4,6 +4,7 @@ from pathlib import Path
 from .mappings import mappings
 
 from rest_framework import serializers
+from rest_framework.serializers import BaseSerializer
 from rest_framework.fields import empty
 
 from django.db.models.enums import Choices
@@ -137,7 +138,7 @@ def __map_choices_to_enum_values(enum_name, field_type, choices):
 
 
 def __process_field(field_name, field, context, serializer, trim_serializer_output, camelize,
-                    enum_choices, enum_values):
+                    enum_choices, enum_values, annotations):
     '''
     Generates and returns a tuple representing the Typescript field name and Type.
     '''
@@ -175,6 +176,7 @@ def __process_field(field_name, field, context, serializer, trim_serializer_outp
         field_function = getattr(serializer, f'get_{field_name}')
         return_type = get_type_hints(field_function).get('return')
         is_generic_type = hasattr(return_type, '__origin__')
+        is_serializer_type = False
         many = False
 
         # TODO type pass recursively to represent something like a list from a list e.g. List[List[int]]
@@ -199,6 +201,22 @@ def __process_field(field_name, field, context, serializer, trim_serializer_outp
             ts_type, ts_enum, ts_enum_value = __process_method_field(
                 field_name, field_type, return_type, enum_choices, enum_values, many
             )
+
+            if issubclass(return_type, BaseSerializer):
+                is_external_serializer = return_type.__module__.replace('.serializers', '') == context
+                is_serializer_type = True
+
+                if is_external_serializer:
+                    # TODO import external interface, not duplicate
+                    # Include external Interface
+                    ts_interface(context=context)(return_type)
+                    # For duplicate interface, set not exported
+                    setattr(return_type, '__exported__', False)
+
+            if is_serializer_type:
+                ts_type = __get_trimmed_name(return_type.__name__, trim_serializer_output)
+                is_many = many
+
             types.append(ts_type)
 
         # Clear duplicate types
@@ -283,7 +301,7 @@ def __get_ts_interface_and_enums(serializer, context, trim_serializer_output, ca
     enums = []
     for key, value in fields:
         ts_property, ts_type, ts_enum, ts_enum_value = __process_field(
-            key, value, context, serializer, trim_serializer_output, camelize, enum_choices, enum_values)
+            key, value, context, serializer, trim_serializer_output, camelize, enum_choices, enum_values, annotations)
 
         if ts_enum_value is not None:
             enums.append(ts_enum_value)
@@ -304,7 +322,8 @@ def __get_ts_interface_and_enums(serializer, context, trim_serializer_output, ca
 
         ts_fields.append(f"    {ts_property}: {ts_type};")
     collapsed_fields = '\n'.join(ts_fields)
-    return f'export interface {name} {{\n{collapsed_fields}\n}}\n\n', enums
+    exported = getattr(serializer, '__exported__', True)
+    return f'{"export " if exported else ""}interface {name} {{\n{collapsed_fields}\n}}\n\n', enums
 
 
 def __generate_interfaces_and_enums(context, trim_serializer_output, camelize, enum_choices, enum_values, annotations):
