@@ -202,6 +202,10 @@ def __process_field(field_name, field, context, serializer, trim_serializer_outp
                 field_name, field_type, return_type, enum_choices, enum_values, many
             )
 
+            if isinstance(return_type, BaseSerializer):
+                many = return_type.many
+                return_type = return_type.child.__class__
+
             if issubclass(return_type, BaseSerializer):
                 is_external_serializer = not return_type.__module__.replace('.serializers', '') == context
                 is_serializer_type = True
