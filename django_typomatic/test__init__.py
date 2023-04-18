@@ -78,6 +78,12 @@ class FileSerializer(serializers.Serializer):
 
 
 @ts_interface('methodFields')
+class MethodFieldsNestedSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=15)
+    description = serializers.CharField(max_length=100)
+
+
+@ts_interface('methodFields')
 class MethodFieldsSerializer(serializers.Serializer):
     integer_field = serializers.SerializerMethodField()
     string_field = serializers.SerializerMethodField()
@@ -85,6 +91,7 @@ class MethodFieldsSerializer(serializers.Serializer):
     choice_field = serializers.SerializerMethodField()
     multiple_return = serializers.SerializerMethodField()
     various_type_return = serializers.SerializerMethodField()
+    serializer_type_return = serializers.SerializerMethodField()
 
     def get_integer_field(self) -> int:
         return 5
@@ -103,6 +110,9 @@ class MethodFieldsSerializer(serializers.Serializer):
 
     def get_various_type_return(self) -> [int, str]:
         return random.choice([1, 'test'])
+
+    def get_serializer_type_return(self) -> MethodFieldsNestedSerializer:
+        return MethodFieldsNestedSerializer(name='test', description='Test')
 
 
 def test_get_ts():
@@ -311,6 +321,11 @@ def test_method_fields_serializer():
 }
 
 
+export interface MethodFieldsNestedSerializer {
+    name: string;
+    description: string;
+}
+
 export interface MethodFieldsSerializer {
     integer_field?: number;
     string_field?: string;
@@ -318,6 +333,7 @@ export interface MethodFieldsSerializer {
     choice_field?: ChoiceFieldChoiceEnum;
     multiple_return?: number[];
     various_type_return?: number | string;
+    serializer_type_return?: MethodFieldsNestedSerializer;
 }
 
 """
