@@ -1,12 +1,9 @@
-import io
 import random
 from typing import List
 
-import pytest
 from rest_framework import serializers
 from django.db import models
-from unittest.mock import patch, mock_open, MagicMock
-from . import ts_interface, generate_ts, get_ts
+from . import ts_interface, get_ts, ts_format
 
 
 @ts_interface(context='internal')
@@ -45,6 +42,11 @@ class OtherSerializer(serializers.Serializer):
     url_field = serializers.URLField(default='https://google.com')
     float_field = serializers.FloatField()
     empty_annotation = serializers.CharField()
+    custom_format = serializers.SerializerMethodField()
+
+    @ts_format('email')
+    def get_custom_format(self, instance) -> str:
+        return 'test@email.com'
 
 
 class ActionType(models.TextChoices):
@@ -277,6 +279,10 @@ def test_annotations():
     */
     float_field: number;
     empty_annotation: string;
+    /**
+    * @format email
+    */
+    custom_format?: string;
 }
 
 """

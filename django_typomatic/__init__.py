@@ -82,6 +82,14 @@ def ts_interface(context='default', mapping_overrides=None):
     return decorator
 
 
+def ts_format(format):
+    def decorator(f):
+        f.format = format
+        return f
+
+    return decorator
+
+
 def __get_trimmed_name(name, trim_serializer_output):
     key = "Serializer"
     return name[:-len(key)] if trim_serializer_output and name.endswith(key) else name
@@ -197,7 +205,7 @@ def __process_field(field_name, field, context, serializer, trim_serializer_outp
                     field_name, field_type, return_type, enum_choices, enum_values, many
                 )
                 types.append(ts_type)
-        else:
+        elif return_type:
             ts_type, ts_enum, ts_enum_value = __process_method_field(
                 field_name, field_type, return_type, enum_choices, enum_values, many
             )
@@ -222,6 +230,14 @@ def __process_field(field_name, field, context, serializer, trim_serializer_outp
                 is_many = many
 
             types.append(ts_type)
+        else:
+            ts_type, ts_enum, ts_enum_value = __process_method_field(
+                field_name, field_type, return_type, enum_choices, enum_values, many
+            )
+            types.append(ts_type)
+
+        if hasattr(field_function, 'format'):
+            field.format = field_function.format
 
         # Clear duplicate types
         types = list(dict.fromkeys(types))
@@ -384,6 +400,8 @@ def __get_annotations(field, ts_type):
 
     if field_type in format_mappings:
         annotations.append(f'    * @format {format_mappings[field_type]}')
+    elif hasattr(field, 'format'):
+        annotations.append(f'    * @format {field.format}')
 
     annotations.append('    */')
 
