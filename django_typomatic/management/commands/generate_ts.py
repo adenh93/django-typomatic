@@ -129,7 +129,7 @@ class Command(BaseCommand):
         if all:
             for app in apps.get_app_configs():
                 # Filter external modules
-                if str(settings.BASE_DIR.parent) not in app.path:
+                if str(settings.BASE_DIR.parent) not in app.path or '.venv' in app.path:
                     continue
 
                 serializers += self._get_app_serializers(app.name)
