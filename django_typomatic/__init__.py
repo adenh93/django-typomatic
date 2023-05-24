@@ -133,7 +133,8 @@ def __map_choices_to_enum_values(enum_name, field_type, choices):
 
     choices_enum = f"export enum {enum_name} {{\n"
     for key, value in choices.items():
-        value = value.replace("'", "\\'")
+        if type(value) == str:
+            value = value.replace("'", "\\'")
         if type(key) == str:
             choices_enum = choices_enum + f"    {str(key).replace(' ', '_')} = '{value}',\n"
         else:
