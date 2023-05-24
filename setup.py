@@ -6,7 +6,7 @@ with open('README.md') as file:
 
 setuptools.setup(
     name="django-typomatic",
-    version="2.3.1",
+    version="2.3.2",
     url="https://github.com/adenh93/django-typomatic",
 
     author="Aden Herold",
