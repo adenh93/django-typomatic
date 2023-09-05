@@ -93,23 +93,23 @@ def __get_trimmed_name(name, trim_serializer_output):
     return name[:-len(key)] if trim_serializer_output and name.endswith(key) else name
 
 
-def __map_choices_to_union(field_type, choices):
+def __map_choices_to_union(field_name, choices):
     '''
     Generates and returns a TS union type for all values in the provided choices OrderedDict
     '''
     if not choices:
-        _LOG.warning(f'No choices specified for Serializer Field: {field_type}')
+        _LOG.warning(f'No choices specified for Choice Field: {field_name}')
         return 'any'
 
     return ' | '.join(f'"{key}"' if type(key) == str else str(key) for key in choices.keys())
 
 
-def __map_choices_to_enum(enum_name, field_type, choices):
+def __map_choices_to_enum(enum_name, choices):
     '''
     Generates and returns a TS enum for all values in the provided choices OrderedDict
     '''
     if not choices:
-        _LOG.warning(f'No choices specified for Serializer Field: {field_type}')
+        _LOG.warning(f'No choices specified for Enum Field: {enum_name}')
         return 'any'
 
     choices_enum = f"export enum {enum_name} {{\n"
@@ -123,12 +123,12 @@ def __map_choices_to_enum(enum_name, field_type, choices):
     return choices_enum
 
 
-def __map_choices_to_enum_values(enum_name, field_type, choices):
+def __map_choices_to_enum_values(enum_name, choices):
     '''
     Generates and returns a TS enum values (display name) for all values in the provided choices OrderedDict
     '''
     if not choices:
-        _LOG.warning(f'No choices specified for Serializer Field: {field_type}')
+        _LOG.warning(f'No choices specified for Enum Field: {enum_name}')
         return 'any'
 
     choices_enum = f"export enum {enum_name} {{\n"
@@ -146,12 +146,10 @@ def __map_choices_to_enum_values(enum_name, field_type, choices):
 
 
 def __process_field(field_name, field, context, serializer, trim_serializer_output, camelize,
-                    enum_choices, enum_values, annotations):
+                    enum_choices, enum_values):
     '''
     Generates and returns a tuple representing the Typescript field name and Type.
     '''
-    ts_enum = None
-    ts_enum_value = None
     if hasattr(field, 'child'):
         is_many = True
         field_type = type(field.child)
@@ -173,75 +171,16 @@ def __process_field(field_name, field, context, serializer, trim_serializer_outp
             field_name, 'any')
     elif field_type == serializers.PrimaryKeyRelatedField:
         ts_type = "number | string"
-    elif (hasattr(field, 'choices') and enum_choices) or (hasattr(field, 'choices') and enum_values):
-        ts_type, ts_enum, ts_enum_value = __process_choice_field(
-            field_name, field_type, field.choices, enum_choices, enum_values
-        )
+    elif hasattr(field, 'choices') and enum_choices:
+        ts_type = f"{''.join(x.title() for x in field_name.split('_'))}ChoiceEnum"
+    elif hasattr(field, 'choices') and enum_values and enum_choices:
+        ts_type = f"{''.join(x.title() for x in field_name.split('_'))}ChoiceEnumValues"
     elif hasattr(field, 'choices'):
-        ts_type = __map_choices_to_union(field_type, field.choices)
+        ts_type = __map_choices_to_union(field_name, field.choices)
     elif field_type == serializers.SerializerMethodField:
-        types = []
-        field_function = getattr(serializer, f'get_{field_name}')
-        return_type = get_type_hints(field_function).get('return')
-        is_generic_type = hasattr(return_type, '__origin__')
-        is_serializer_type = False
-        many = False
-
-        # TODO type pass recursively to represent something like a list from a list e.g. List[List[int]]
-        if is_generic_type:
-            return_type, many = __process_generic_type(return_type)
-
-        if isinstance(return_type, list) or isinstance(return_type, tuple) or isinstance(return_type, set):
-            return_types = return_type
-
-            for return_type in return_types:
-                many = False
-                is_generic_type = hasattr(return_type, '__origin__')
-
-                if is_generic_type:
-                    return_type, many = __process_generic_type(return_type)
-
-                ts_type, ts_enum, ts_enum_value = __process_method_field(
-                    field_name, field_type, return_type, enum_choices, enum_values, many
-                )
-                types.append(ts_type)
-        elif return_type:
-            ts_type, ts_enum, ts_enum_value = __process_method_field(
-                field_name, field_type, return_type, enum_choices, enum_values, many
-            )
-
-            if isinstance(return_type, BaseSerializer):
-                many = return_type.many
-                return_type = return_type.child.__class__
-
-            if issubclass(return_type, BaseSerializer):
-                is_external_serializer = not return_type.__module__.replace('.serializers', '') == context
-                is_serializer_type = True
-
-                if is_external_serializer and return_type not in __serializers.get(context, []):
-                    # TODO import external interface, not duplicate
-                    # Include external Interface
-                    ts_interface(context=context)(return_type)
-                    # For duplicate interface, set not exported
-                    setattr(return_type, '__exported__', False)
-
-            if is_serializer_type:
-                ts_type = __get_trimmed_name(return_type.__name__, trim_serializer_output)
-                is_many = many
-
-            types.append(ts_type)
-        else:
-            ts_type, ts_enum, ts_enum_value = __process_method_field(
-                field_name, field_type, return_type, enum_choices, enum_values, many
-            )
-            types.append(ts_type)
-
-        if hasattr(field_function, 'format'):
-            field.format = field_function.format
-
-        # Clear duplicate types
-        types = list(dict.fromkeys(types))
-        ts_type = " | ".join(types)
+        is_many, ts_type = __get_nested_serializer_field(context, enum_choices, enum_values, field,
+                                                         field_name, is_many, serializer,
+                                                         trim_serializer_output)
     else:
         ts_type = mappings.get(field_type, 'any')
     if is_many:
@@ -249,9 +188,71 @@ def __process_field(field_name, field, context, serializer, trim_serializer_outp
 
     if camelize:
         field_name_components = field_name.split("_")
-        field_name = field_name_components[0] + "".join(x.title() for x in field_name_components[1:])
+        field_name = field_name_components[0] + "".join(
+            x.title() for x in field_name_components[1:])
 
-    return field_name, ts_type, ts_enum, ts_enum_value
+    return field_name, ts_type
+
+
+def __get_nested_serializer_field(context, enum_choices, enum_values, field, field_name, is_many,
+                                  serializer, trim_serializer_output):
+    types = []
+    field_function = getattr(serializer, f'get_{field_name}')
+    return_type = get_type_hints(field_function).get('return')
+    is_generic_type = hasattr(return_type, '__origin__')
+    is_serializer_type = False
+    many = False
+    # TODO type pass recursively to represent something like a list from a list e.g. List[List[int]]
+    if is_generic_type:
+        return_type, many = __process_generic_type(return_type)
+    if isinstance(return_type, list) or isinstance(return_type, tuple) or isinstance(
+            return_type, set):
+        return_types = return_type
+
+        for return_type in return_types:
+            many = False
+            is_generic_type = hasattr(return_type, '__origin__')
+
+            if is_generic_type:
+                return_type, many = __process_generic_type(return_type)
+
+            ts_type = __process_method_field(
+                field_name, return_type, enum_choices, enum_values, many
+            )
+            types.append(ts_type)
+    elif return_type:
+        ts_type = __process_method_field(field_name, return_type, enum_choices, enum_values, many)
+
+        if isinstance(return_type, BaseSerializer):
+            many = return_type.many
+            return_type = return_type.child.__class__
+
+        if issubclass(return_type, BaseSerializer):
+            is_external_serializer = return_type.__module__.replace('.serializers',
+                                                                    '') != context
+            is_serializer_type = True
+
+            if is_external_serializer and return_type not in __serializers.get(context, []):
+                # TODO import external interface, not duplicate
+                # Include external Interface
+                ts_interface(context=context)(return_type)
+                # For duplicate interface, set not exported
+                setattr(return_type, '__exported__', False)
+
+        if is_serializer_type:
+            ts_type = __get_trimmed_name(return_type.__name__, trim_serializer_output)
+            is_many = many
+
+        types.append(ts_type)
+    else:
+        ts_type = __process_method_field(field_name, return_type, enum_choices, enum_values, many)
+        types.append(ts_type)
+    if hasattr(field_function, 'format'):
+        field.format = field_function.format
+    # Clear duplicate types
+    types = list(dict.fromkeys(types))
+    ts_type = " | ".join(types)
+    return is_many, ts_type
 
 
 def __process_generic_type(return_type):
@@ -265,44 +266,38 @@ def __process_generic_type(return_type):
     return return_type, is_many
 
 
-def __process_choice_field(field_name, field_type, choices, enum_choices, enum_values):
+def __process_choice_field(field_name, choices, enum_choices, enum_values):
     ts_enum = None
     ts_enum_value = None
 
     ts_type = f"{''.join(x.title() for x in field_name.split('_'))}ChoiceEnum"
     if enum_choices:
-        ts_enum = __map_choices_to_enum(ts_type, field_type, choices)
+        ts_enum = __map_choices_to_enum(ts_type, choices)
     if enum_values:
-        ts_enum_value = __map_choices_to_enum_values(f'{ts_type}Values', field_type, choices)
+        ts_enum_value = __map_choices_to_enum_values(f'{ts_type}Values', choices)
 
-        if not enum_choices:
-            ts_type = __map_choices_to_union(field_type, choices)
-    return ts_type, ts_enum, ts_enum_value
+    return ts_enum, ts_enum_value
 
 
-def __process_method_field(field_name, field_type, return_type, enum_choices, enum_values, many=False):
-    ts_enum = None
-    ts_enum_value = None
-
+def __process_method_field(field_name, return_type, enum_choices, enum_values, many=False):
     if inspect.isclass(return_type) and issubclass(return_type, Choices):
         choices = {key: value for key, value in return_type.choices}
 
-        ts_type, ts_enum, ts_enum_value = __process_choice_field(
-            field_name, field_type, choices, enum_choices, enum_values
-        )
-
-        if not enum_choices:
-            ts_type = __map_choices_to_union(field_type, choices)
-        return ts_type, ts_enum, ts_enum_value
+        if enum_choices:
+            return f"{''.join(x.title() for x in field_name.split('_'))}ChoiceEnum"
+        elif enum_values:
+            return f"{''.join(x.title() for x in field_name.split('_'))}ChoiceEnumValues"
+        else:
+            return __map_choices_to_union(field_name, choices)
 
     ts_type = primitives_mapping.get(return_type, 'any')
     ts_type = ts_type if not many else f'{ts_type}[]'
 
-    return ts_type, ts_enum, ts_enum_value
+    return ts_type
 
 
-def __get_ts_interface_and_enums(serializer, context, trim_serializer_output, camelize, enum_choices, enum_values,
-                                 annotations):
+def __get_ts_interface(serializer, context, trim_serializer_output, camelize, enum_choices,
+                       enum_values, annotations):
     '''
     Generates and returns a Typescript Interface by iterating
     through the serializer fields of the DRF Serializer class
@@ -318,16 +313,10 @@ def __get_ts_interface_and_enums(serializer, context, trim_serializer_output, ca
     else:
         fields = serializer._declared_fields.items()
     ts_fields = []
-    enums = []
     for key, value in fields:
-        ts_property, ts_type, ts_enum, ts_enum_value = __process_field(
-            key, value, context, serializer, trim_serializer_output, camelize, enum_choices, enum_values, annotations)
-
-        if ts_enum_value is not None:
-            enums.append(ts_enum_value)
-
-        if ts_enum is not None:
-            enums.append(ts_enum)
+        ts_property, ts_type = __process_field(key, value, context, serializer,
+                                               trim_serializer_output, camelize, enum_choices,
+                                               enum_values)
 
         if value.read_only or not value.required:
             ts_property = ts_property + "?"
@@ -343,36 +332,79 @@ def __get_ts_interface_and_enums(serializer, context, trim_serializer_output, ca
         ts_fields.append(f"    {ts_property}: {ts_type};")
     collapsed_fields = '\n'.join(ts_fields)
     exported = getattr(serializer, '__exported__', True)
-    return f'{"export " if exported else ""}interface {name} {{\n{collapsed_fields}\n}}\n\n', enums
+    return f'{"export " if exported else ""}interface {name} {{\n{collapsed_fields}\n}}\n\n'
 
 
-def __generate_interfaces_and_enums(context, trim_serializer_output, camelize, enum_choices, enum_values, annotations):
+def __generate_interfaces(context, trim_serializer_output, camelize, enum_choices, enum_values,
+                          annotations):
     if context not in __serializers:
         return []
-    return [__get_ts_interface_and_enums(serializer, context, trim_serializer_output, camelize,
-                                         enum_choices, enum_values, annotations) for serializer in
+    return [__get_ts_interface(serializer, context, trim_serializer_output, camelize,
+                               enum_choices, enum_values, annotations) for serializer in
             __serializers[context]]
 
 
-def __get_enums_and_interfaces_from_generated(interfaces_enums):
+def __generate_enums(context, enum_choices, enum_values):
+    enums = []
+    if context not in __serializers:
+        return []
+    for serializer in __serializers[context]:
+        if hasattr(serializer, 'get_fields'):
+            instance = serializer()
+            fields = instance.get_fields().items()
+        else:
+            fields = serializer._declared_fields.items()
+        for field_name, field in fields:
+            ts_enum, ts_enum_value = __extract_field_enums(enum_choices, enum_values, field,
+                                                           field_name, serializer)
+
+            if ts_enum_value is not None:
+                enums.append(ts_enum_value)
+            if ts_enum is not None:
+                enums.append(ts_enum)
+
+    return enums
+
+
+def __extract_field_enums(enum_choices, enum_values, field, field_name, serializer):
+    ts_enum, ts_enum_value = None, None
+    if hasattr(field, 'choices'):
+        ts_enum, ts_enum_value = __process_choice_field(
+            field_name, field.choices, enum_choices, enum_values
+        )
+    if hasattr(field, 'child'):
+        field_type = type(field.child)
+    elif hasattr(field, 'child_relation'):
+        field_type = type(field.child_relation)
+    else:
+        field_type = type(field)
+    if field_type == serializers.SerializerMethodField:
+        field_function = getattr(serializer, f'get_{field_name}')
+        return_type = get_type_hints(field_function).get('return')
+        if inspect.isclass(return_type) and issubclass(return_type, Choices):
+            choices = {key: value for key, value in return_type.choices}
+            ts_enum, ts_enum_value = __process_choice_field(
+                field_name, choices, enum_choices, enum_values
+            )
+    return ts_enum, ts_enum_value
+
+
+def __get_enums_and_interfaces_from_generated(interfaces, enums):
     '''
     Get the interfaces and enums from the generated interfaces and enums.
     Works by splitting the tuples into two lists, one for interfaces and one for enums.
     The interfaces are not changed. The enums are compared such that there are no duplicates
     between interfaces. Then the enums are returned in string format with blank lines in between.
     '''
-    interfaces, enums = [list(tup) for tup in zip(*interfaces_enums)]
     enums_string = ''
-    flat_enums = [item for sublist in enums for item in sublist]
-    if any(elem is not None for elem in flat_enums):
-        distinct_enums = sorted(list(set(list(filter(lambda x: x is not None, flat_enums)))))
+    if any(elem is not None for elem in enums):
+        distinct_enums = sorted(list(set(list(filter(lambda x: x is not None, enums)))))
         enums_string = '\n'.join(distinct_enums) + '\n\n'
     return enums_string, interfaces
 
 
 def __get_annotations(field, ts_type):
-    annotations = []
-    annotations.append('    /**')
+    annotations = ['    /**']
     if field.label:
         annotations.append(f'    * @label {field.label}')
 
@@ -428,20 +460,28 @@ def generate_ts(output_path, context='default', trim_serializer_output=False, ca
     output_path.parent.mkdir(exist_ok=True, parents=True)
 
     with open(output_path, 'w') as output_file:
-        interfaces_enums = __generate_interfaces_and_enums(context, trim_serializer_output,
-                                                           camelize, enum_choices, enum_values, annotations)
-        enums_string, interfaces = __get_enums_and_interfaces_from_generated(interfaces_enums)
+        interfaces = __generate_interfaces(context, trim_serializer_output,
+                                           camelize, enum_choices, enum_values,
+                                           annotations)
+        enums = ''
+        if enum_choices or enum_values:
+            enums = __generate_enums(context, enum_choices, enum_values)
+        enums_string, interfaces = __get_enums_and_interfaces_from_generated(interfaces, enums)
         output_file.write(enums_string + ''.join(interfaces))
 
 
-def get_ts(context='default', trim_serializer_output=False, camelize=False, enum_choices=False, enum_values=False,
+def get_ts(context='default', trim_serializer_output=False, camelize=False, enum_choices=False,
+           enum_values=False,
            annotations=False):
     '''
     Similar to generate_ts. But rather than outputting the generated
     interfaces to the specified file, will return the generated interfaces
     as a raw string.
     '''
-    interfaces_enums = __generate_interfaces_and_enums(context, trim_serializer_output, camelize,
-                                                       enum_choices, enum_values, annotations)
-    enums_string, interfaces = __get_enums_and_interfaces_from_generated(interfaces_enums)
+    interfaces = __generate_interfaces(context, trim_serializer_output, camelize, enum_choices,
+                                       enum_values, annotations)
+    enums = ''
+    if enum_choices or enum_values:
+        enums = __generate_enums(context, enum_choices, enum_values)
+    enums_string, interfaces = __get_enums_and_interfaces_from_generated(interfaces, enums)
     return enums_string + ''.join(interfaces)
