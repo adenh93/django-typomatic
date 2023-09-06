@@ -72,6 +72,13 @@ class Command(BaseCommand):
             action='store_true'
         )
         parser.add_argument(
+            '--enum_keys',
+            '-ek',
+            help='Add enum keys by values for obtain display name for choices field',
+            default=False,
+            action='store_true'
+        )
+        parser.add_argument(
             '-o',
             '--output',
             help='Output folder for save TS files, by default save as ./types folder',
@@ -114,8 +121,9 @@ class Command(BaseCommand):
         generate_ts(
             output_path,
             context=app_name,
-            enum_values=options['enum_values'],
             enum_choices=options['enum_choices'],
+            enum_values=options['enum_values'],
+            enum_keys=options['enum_keys'],
             camelize=options['camelize'],
             trim_serializer_output=options['trim'],
             annotations=options['annotations']

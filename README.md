@@ -303,6 +303,7 @@ Special thanks to @bigpe for brewing up the first version of this CLI!
    --annotations, -a Add js doc annotations for validations (eg. for Zod)
    --enum_choices, -ec Add choices to external enum type instead union
    --enum_values, -ev Add enum to obtain display name for choices field
+   --enum_keys, -ev Add enum to obtain the choices field keys by values
 ```
 
 Using the new `generate_ts` management command, you can fine tune the generation of your interfaces similarly to how you would via the decorator method, with some additional functionality. For example, you can call the command with the `--all` flag and get all the generated types to the folder specified (they will be grouped by the application name, all external applications will be excluded, only the project applications).
