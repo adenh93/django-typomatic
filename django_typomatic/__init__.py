@@ -147,7 +147,9 @@ def __map_choices_to_enum_values(enum_name, choices):
 
 def __map_choices_to_enum_keys_by_values(enum_name, choices):
     '''
-    Generates and returns a TS enum values (display name) for all values in the provided choices OrderedDict
+    Generates and returns a TS enum values (display name) for all keys by the values in the
+    provided choices OrderedDict. Format as follows:
+     "export enum FieldNameChoiceEnumKeys { VALUE1 = 'key1', VALUE2 = 'key2' }"
     '''
     if not choices:
         _LOG.warning(f'No choices specified for Enum Field: {enum_name}')
@@ -292,6 +294,15 @@ def __process_generic_type(return_type):
 
 
 def __process_choice_field(field_name, choices, enum_choices, enum_values, enum_keys):
+    '''
+    Get the typescript enums of a Choices field
+    :param field_name: name of the Choices field
+    :param choices: possibilities of the Choices field
+    :param enum_choices: whether the regular choice enum should be returned
+    :param enum_values: whether the values choice enum should be returned
+    :param enum_keys:  whether the keys choice enum should be returned
+    :return: strings of all the extracted typescript enums
+    '''
     ts_enum = None
     ts_enum_value = None
     ts_enum_key = None
@@ -308,6 +319,9 @@ def __process_choice_field(field_name, choices, enum_choices, enum_values, enum_
 
 
 def __process_method_field(field_name, return_type, enum_choices, enum_values, enum_keys, many=False):
+    '''
+    Function to set the typescript mapping for a Django Method Field
+    '''
     if inspect.isclass(return_type) and issubclass(return_type, Choices):
         choices = {key: value for key, value in return_type.choices}
 
@@ -375,6 +389,10 @@ def __generate_interfaces(context, trim_serializer_output, camelize, enum_choice
 
 
 def __generate_enums(context, enum_choices, enum_values, enum_keys):
+    '''
+    Function to generate a string of all the possible enums (including possible duplicates). This
+    does not change the mapping of the interfaces but only generates enums from used choice fields.
+    '''
     enums = []
     if context not in __serializers:
         return []
@@ -421,18 +439,16 @@ def __extract_field_enums(enum_choices, enum_values, enum_keys, field, field_nam
     return ts_enum, ts_enum_value, ts_enum_key
 
 
-def __get_enums_and_interfaces_from_generated(interfaces, enums):
+def __remove_duplicate_enums(enums):
     '''
-    Get the interfaces and enums from the generated interfaces and enums.
-    Works by splitting the tuples into two lists, one for interfaces and one for enums.
-    The interfaces are not changed. The enums are compared such that there are no duplicates
-    between interfaces. Then the enums are returned in string format with blank lines in between.
+    The enums are compared such that there are no duplicates between interfaces. Then the enums are
+    returned in string format with blank lines in between.
     '''
     enums_string = ''
     if any(elem is not None for elem in enums):
         distinct_enums = sorted(list(set(list(filter(lambda x: x is not None, enums)))))
         enums_string = '\n'.join(distinct_enums) + '\n\n'
-    return enums_string, interfaces
+    return enums_string
 
 
 def __get_annotations(field, ts_type):
@@ -494,10 +510,10 @@ def generate_ts(output_path, context='default', trim_serializer_output=False, ca
     with open(output_path, 'w') as output_file:
         interfaces = __generate_interfaces(context, trim_serializer_output, camelize, enum_choices,
                                            enum_values, enum_keys, annotations)
-        enums = ''
+        enums = []
         if enum_choices or enum_values or enum_keys:
             enums = __generate_enums(context, enum_choices, enum_values, enum_keys)
-        enums_string, interfaces = __get_enums_and_interfaces_from_generated(interfaces, enums)
+        enums_string = __remove_duplicate_enums(enums)
         output_file.write(enums_string + ''.join(interfaces))
 
 
@@ -510,8 +526,8 @@ def get_ts(context='default', trim_serializer_output=False, camelize=False, enum
     '''
     interfaces = __generate_interfaces(context, trim_serializer_output, camelize, enum_choices,
                                        enum_values, enum_keys, annotations)
-    enums = ''
+    enums = []
     if enum_choices or enum_values or enum_keys:
         enums = __generate_enums(context, enum_choices, enum_values, enum_keys)
-    enums_string, interfaces = __get_enums_and_interfaces_from_generated(interfaces, enums)
+    enums_string = __remove_duplicate_enums(enums)
     return enums_string + ''.join(interfaces)
