@@ -104,18 +104,44 @@ def __map_choices_to_union(field_name, choices):
     return ' | '.join(f'"{key}"' if type(key) == str else str(key) for key in choices.keys())
 
 
+def __get_choices_escape_spec_chars(choices):
+    '''
+    Get booleans whether the keys and/or values of a choices field have special characters
+    :param choices: choices field to check
+    :return: whether the keys and values should be formatted as a string in the enum
+    '''
+    spec_chars = {'~', ':', '+', '[', '\\', '@', '^', '{', '%', '(', '-', '"', '*', '|', ',', '&',
+                  '<', '`', '}', '.', '=', ']', '!', '>', ';', '?', '#', '$', ')', '/'}
+    key_string = any(type(key) == str and (char in key or key[0].isdigit())
+                     for char in spec_chars for key in choices.keys())
+    value_string = any(type(value) == str and (char in value or value[0].isdigit())
+                       for char in spec_chars for value in choices.values())
+    return key_string, value_string
+
+
 def __map_choices_to_enum(enum_name, choices):
     '''
     Generates and returns a TS enum for all values in the provided choices OrderedDict
     '''
     if not choices:
         _LOG.warning(f'No choices specified for Enum Field: {enum_name}')
-        return 'any'
+        return f'let {enum_name} = any;'
 
     choices_enum = f"export enum {enum_name} {{\n"
+    key_esc, value_esc = __get_choices_escape_spec_chars(choices)
     for key, value in choices.items():
+        if type(value) == str:
+            value = value.replace("'", "\\'")
         if type(key) == str:
+            key = key.replace("'", "\\'")
+        if type(key) == str and key_esc:
+            choices_enum = choices_enum + f"    '{str(key).upper().replace(' ', '_')}' = '{key}',\n"
+        elif type(key) == str and not key_esc:
             choices_enum = choices_enum + f"    {str(key).upper().replace(' ', '_')} = '{key}',\n"
+        elif value_esc and key_esc and type(key) == str:
+            choices_enum = choices_enum + f"    '{str(value).upper().replace(' ', '_')}' = '{key}',\n"
+        elif value_esc:
+            choices_enum = choices_enum + f"    '{str(value).upper().replace(' ', '_')}' = {key},\n"
         else:
             choices_enum = choices_enum + f"    {str(value).upper().replace(' ', '_')} = {key},\n"
     choices_enum = choices_enum + "}\n"
@@ -129,16 +155,21 @@ def __map_choices_to_enum_values(enum_name, choices):
     '''
     if not choices:
         _LOG.warning(f'No choices specified for Enum Field: {enum_name}')
-        return 'any'
+        return f'let {enum_name} = any;'
 
     choices_enum = f"export enum {enum_name} {{\n"
+    key_esc, _ = __get_choices_escape_spec_chars(choices)
     for key, value in choices.items():
         if type(value) == str:
             value = value.replace("'", "\\'")
         if type(key) == str:
+            key = key.replace("'", "\'")
+        if type(key) == str and key_esc:
+            choices_enum = choices_enum + f"    '{str(key).replace(' ', '_')}' = '{value}',\n"
+        elif type(key) == str:
             choices_enum = choices_enum + f"    {str(key).replace(' ', '_')} = '{value}',\n"
         else:
-            "Number enums not need it"
+            print("Number enums not need it")
             return None
     choices_enum = choices_enum + "}\n"
 
@@ -153,11 +184,20 @@ def __map_choices_to_enum_keys_by_values(enum_name, choices):
     '''
     if not choices:
         _LOG.warning(f'No choices specified for Enum Field: {enum_name}')
-        return 'any'
+        return f'let {enum_name} = any;'
 
     choices_enum = f"export enum {enum_name} {{\n"
+    _, value_esc = __get_choices_escape_spec_chars(choices)
     for key, value in choices.items():
+        if type(value) == str:
+            value = value.replace("'", "\\'")
         if type(key) == str:
+            key = key.replace("'", "\\'")
+        if type(key) == str and value_esc:
+            choices_enum = choices_enum + f"    '{str(value).upper().replace(' ', '_')}' = '{key}',\n"
+        elif value_esc:
+            choices_enum = choices_enum + f"    '{str(value).upper().replace(' ', '_')}' = {key},\n"
+        elif type(key) == str:
             choices_enum = choices_enum + f"    {str(value).upper().replace(' ', '_')} = '{key}',\n"
         else:
             choices_enum = choices_enum + f"    {str(value).upper().replace(' ', '_')} = {key},\n"
@@ -192,13 +232,14 @@ def __process_field(field_name, field, context, serializer, trim_serializer_outp
             field_name, 'any')
     elif field_type == serializers.PrimaryKeyRelatedField:
         ts_type = "number | string"
-    elif hasattr(field, 'choices') and enum_choices:
+    elif hasattr(field, 'choice_strings_to_values') and enum_choices:
         ts_type = f"{''.join(x.title() for x in field_name.split('_'))}ChoiceEnum"
-    elif hasattr(field, 'choices') and enum_choices and enum_values and not enum_keys:
+    elif hasattr(field, 'choice_strings_to_values') and enum_choices and enum_values \
+            and not enum_keys:
         ts_type = f"{''.join(x.title() for x in field_name.split('_'))}ChoiceEnumValues"
-    elif hasattr(field, 'choices') and enum_keys:
+    elif hasattr(field, 'choice_strings_to_values') and enum_keys:
         ts_type = f"{''.join(x.title() for x in field_name.split('_'))}ChoiceEnumKeys"
-    elif hasattr(field, 'choices'):
+    elif hasattr(field, 'choice_strings_to_values'):
         ts_type = __map_choices_to_union(field_name, field.choices)
     elif field_type == serializers.SerializerMethodField:
         is_many, ts_type = __get_nested_serializer_field(context, enum_choices, enum_values,
@@ -326,9 +367,9 @@ def __process_method_field(field_name, return_type, enum_choices, enum_values, e
         choices = {key: value for key, value in return_type.choices}
 
         if enum_choices:
+            if enum_values:
+                return f"{''.join(x.title() for x in field_name.split('_'))}ChoiceEnumValues"
             return f"{''.join(x.title() for x in field_name.split('_'))}ChoiceEnum"
-        elif enum_values:
-            return f"{''.join(x.title() for x in field_name.split('_'))}ChoiceEnumValues"
         elif enum_keys:
             return f"{''.join(x.title() for x in field_name.split('_'))}ChoiceEnumKeys"
         else:
@@ -418,7 +459,7 @@ def __generate_enums(context, enum_choices, enum_values, enum_keys):
 
 def __extract_field_enums(enum_choices, enum_values, enum_keys, field, field_name, serializer):
     ts_enum, ts_enum_value, ts_enum_key = None, None, None
-    if hasattr(field, 'choices'):
+    if hasattr(field, 'choice_strings_to_values'):
         ts_enum, ts_enum_value, ts_enum_key = __process_choice_field(
             field_name, field.choices, enum_choices, enum_values, enum_keys,
         )

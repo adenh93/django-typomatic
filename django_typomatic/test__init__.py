@@ -5,6 +5,14 @@ from rest_framework import serializers
 from django.db import models
 from . import ts_interface, get_ts, ts_format
 
+from django.conf import settings
+import django
+
+settings.configure()
+django.setup()
+
+from django_typomatic.management.models import Album
+
 
 @ts_interface(context='internal')
 class FooSerializer(serializers.Serializer):
@@ -115,6 +123,20 @@ class MethodFieldsSerializer(serializers.Serializer):
 
     def get_serializer_type_return(self) -> MethodFieldsNestedSerializer:
         return MethodFieldsNestedSerializer(name='test', description='Test')
+
+
+@ts_interface('nestedEnums')
+class AlbumSerializer(serializers.ModelSerializer):
+    tracks = serializers.SlugRelatedField(
+        many=True,
+        read_only=True,
+        slug_field='title'
+    )
+    num = serializers.ChoiceField(choices=NumberType.choices)
+
+    class Meta:
+        model = Album
+        fields = '__all__'
 
 
 def test_get_ts():
@@ -476,4 +498,60 @@ export interface MethodFieldsSerializer {
 
 """
     interfaces = get_ts('methodFields', enum_choices=True)
+    assert interfaces == expected
+
+
+def test_foreign_key_serializer_with_enums():
+    expected = """export enum NumChoiceEnum {
+    LOW = 1,
+    MEDIUM = 2,
+    HIGH = 3,
+}
+
+export enum NumChoiceEnumKeys {
+    LOW = 1,
+    MEDIUM = 2,
+    HIGH = 3,
+}
+
+export enum StatusChoiceEnum {
+    '1' = '1',
+    '2' = '2',
+    '3' = '3',
+    '4' = '4',
+    '5' = '5',
+    '6' = '6',
+}
+
+export enum StatusChoiceEnumKeys {
+    'ARCHIVED' = '1',
+    'PRE-SAVED' = '2',
+    'SAVED' = '3',
+    'USER\\'S_LIKES' = '4',
+    'USER\\'S_DISLIKES' = '5',
+    'NONE' = '6',
+}
+
+export enum StatusChoiceEnumValues {
+    '1' = 'Archived',
+    '2' = 'Pre-saved',
+    '3' = 'Saved',
+    '4' = 'User\\'s likes',
+    '5' = 'User\\'s dislikes',
+    '6' = 'None',
+}
+
+
+export interface AlbumSerializer {
+    id?: number;
+    tracks?: any[];
+    num: NumChoiceEnum;
+    album_name: string;
+    artist: string;
+    status: StatusChoiceEnum;
+}
+
+"""
+    interfaces = get_ts('nestedEnums', enum_choices=True, enum_keys=True, enum_values=True)
+    print(interfaces)
     assert interfaces == expected
