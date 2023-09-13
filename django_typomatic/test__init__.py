@@ -553,5 +553,4 @@ export interface AlbumSerializer {
 
 """
     interfaces = get_ts('nestedEnums', enum_choices=True, enum_keys=True, enum_values=True)
-    print(interfaces)
     assert interfaces == expected
