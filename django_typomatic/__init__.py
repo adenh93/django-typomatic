@@ -261,7 +261,10 @@ def __process_field(field_name, field, context, serializer, trim_serializer_outp
 def __get_nested_serializer_field(context, enum_choices, enum_values, enum_keys, field, field_name,
                                   is_many, serializer, trim_serializer_output):
     types = []
-    field_function = getattr(serializer, f'get_{field_name}')
+    if field.method_name:
+        field_function = getattr(serializer, field.method_name)
+    else:
+        field_function = getattr(serializer, f'get_{field_name}')
     return_type = get_type_hints(field_function).get('return')
     is_generic_type = hasattr(return_type, '__origin__')
     is_serializer_type = False
