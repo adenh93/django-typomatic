@@ -395,7 +395,7 @@ def __get_ts_interface(serializer, context, trim_serializer_output, camelize, en
     name = __get_trimmed_name(serializer.__name__, trim_serializer_output)
     _LOG.debug(f"Creating interface for {name}")
     fields = []
-    if hasattr(serializer, 'get_fields'):
+    if hasattr(serializer, 'get_fields') and hasattr(serializer, 'Meta') and hasattr(serializer.Meta, 'model'):
         instance = serializer()
         fields = instance.get_fields().items()
     else:
