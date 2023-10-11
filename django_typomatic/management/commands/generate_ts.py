@@ -24,9 +24,17 @@ class Command(BaseCommand):
         parser.add_argument(
             '--serializers',
             '-s',
-            help='Serializers enumeration '
-                 'formats: module_name.SerializerName | module_name',
+            help='Serializers enumeration'
+                 'formats: module_name.SerializerName',
             nargs="*",
+            type=str,
+            default=[]
+        )
+        parser.add_argument(
+            '--app_name',
+            help='Application to generate TS for'
+                 'formats: app_name',
+            nargs=1,
             type=str,
             default=[]
         )
@@ -88,39 +96,43 @@ class Command(BaseCommand):
     @staticmethod
     def _get_app_serializers(app_name):
         serializers = []
-        module = sys.modules.get(f'{app_name}.serializers', None)
-        possibly_serializers = filter(lambda name: not name.startswith('_'), dir(module))
+        modules = sys.modules.get(app_name, None)
+        possibly_modules = filter(lambda name: not name.startswith('_'), dir(modules))
 
-        for serializer_class_name in possibly_serializers:
-            serializer_class = getattr(module, serializer_class_name)
+        for module_name in possibly_modules:
+            module = sys.modules.get(f'{app_name}.{module_name}', None)
+            possibly_serializers = filter(lambda name: not name.startswith('_'), dir(module))
 
-            if not inspect.isclass(serializer_class):
-                continue
+            for serializer_class_name in possibly_serializers:
+                serializer_class = getattr(module, serializer_class_name)
 
-            # Skip imported serializer classes
-            if app_name not in serializer_class.__module__:
-                continue
+                if not inspect.isclass(serializer_class):
+                    continue
 
-            if issubclass(serializer_class, BaseSerializer):
-                serializers.append(f'{app_name}.{serializer_class.__name__}')
+                # Skip imported serializer classes
+                if app_name not in serializer_class.__module__:
+                    continue
+
+                if issubclass(serializer_class, BaseSerializer):
+                    serializers.append(f'{app_name}.{module_name}.{serializer_class.__name__}')
 
         return serializers
 
-    def _generate_ts(self, app_name, serializer_name, output, **options):
-        module = sys.modules.get(f'{app_name}.serializers', None)
+    def _generate_ts(self, module_name, serializer_name, output, **options):
+        module = sys.modules.get(module_name, None)
 
         if not module:
-            self.stdout.write(f'In app #{app_name} not found serializers file, skip', self.style.WARNING)
+            self.stdout.write(f'Module {module_name} not found, skip', self.style.WARNING)
             return
 
         serializer_class = getattr(module, serializer_name)
-        ts_interface(context=app_name)(serializer_class)
+        ts_interface(context=module_name)(serializer_class)
 
-        output_path = Path(output) / app_name / 'index.ts'
+        output_path = Path(output) / module_name / 'index.ts'
 
         generate_ts(
             output_path,
-            context=app_name,
+            context=module_name,
             enum_choices=options['enum_choices'],
             enum_values=options['enum_values'],
             enum_keys=options['enum_keys'],
@@ -128,11 +140,11 @@ class Command(BaseCommand):
             trim_serializer_output=options['trim'],
             annotations=options['annotations']
         )
-        self.stdout.write(f'[+] {app_name}.{serializer_name}')
+        self.stdout.write(f'[+] {module_name}.{serializer_name}')
 
-    def handle(self, *args, serializers, output, all, **options):
-        if all and serializers:
-            raise CommandError('Only --all or --serializers must be specified, not together')
+    def handle(self, *args, serializers, app_name, output, all, **options):
+        if sum([bool(serializers), bool(app_name), bool(all)]) != 1:
+            raise CommandError('Only one of --all, --app_name or --serializers must be specified')
 
         if all:
             for app in apps.get_app_configs():
@@ -142,20 +154,9 @@ class Command(BaseCommand):
 
                 serializers += self._get_app_serializers(app.name)
 
+        if app_name:
+                serializers = self._get_app_serializers(app_name[0])
+
         for serializer in serializers:
-            user_input = serializer.split('.')
-
-            # Only app name
-            if len(user_input) == 1:
-                app_name = user_input[0]
-                serializers_list = self._get_app_serializers(app_name)
-
-                for s in serializers_list:
-                    _, serializer_name = s.split('.')
-                    self._generate_ts(app_name, serializer_name, output, **options)
-            # App name with serializer e.g. user.UserSerializer
-            elif len(user_input) == 2:
-                app_name, serializer_name = user_input
-                self._generate_ts(app_name, serializer_name, output, **options)
-            else:
-                self.stdout.write(f'Wrong format ({serializer})', self.style.ERROR)
+            module_name, serializer_name = serializer.rsplit('.', 1)
+            self._generate_ts(module_name, serializer_name, output, **options)

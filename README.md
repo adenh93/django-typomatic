@@ -314,7 +314,7 @@ You can also generate modules separately, as an example, `-s user` will restrict
 
 _Generate TS for `user` app_
 
-`./manage.py generate_ts -s user`
+`./manage.py generate_ts --app_name user`
 
 _Generate TS for specific serializer from user app_
 
@@ -326,6 +326,6 @@ _Generate TS for many apps or serializers_
 
 _Generate TS for user app with annotations, choices enums, trim serializer, camelize, enum values and custom output path_
 
-`./manage.py generate_ts -s user -a -ec -t -c -ev -o "./custom_folder/"`
+`./manage.py generate_ts --app_name user -a -ec -t -c -ev -o "./custom_folder/"`
 
 

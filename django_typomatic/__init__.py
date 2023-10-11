@@ -261,7 +261,10 @@ def __process_field(field_name, field, context, serializer, trim_serializer_outp
 def __get_nested_serializer_field(context, enum_choices, enum_values, enum_keys, field, field_name,
                                   is_many, serializer, trim_serializer_output):
     types = []
-    field_function = getattr(serializer, f'get_{field_name}')
+    if field.method_name:
+        field_function = getattr(serializer, field.method_name)
+    else:
+        field_function = getattr(serializer, f'get_{field_name}')
     return_type = get_type_hints(field_function).get('return')
     is_generic_type = hasattr(return_type, '__origin__')
     is_serializer_type = False
@@ -392,7 +395,7 @@ def __get_ts_interface(serializer, context, trim_serializer_output, camelize, en
     name = __get_trimmed_name(serializer.__name__, trim_serializer_output)
     _LOG.debug(f"Creating interface for {name}")
     fields = []
-    if hasattr(serializer, 'get_fields'):
+    if hasattr(serializer, 'get_fields') and hasattr(serializer, 'Meta') and hasattr(serializer.Meta, 'model'):
         instance = serializer()
         fields = instance.get_fields().items()
     else:
