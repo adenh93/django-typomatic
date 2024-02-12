@@ -148,8 +148,9 @@ class Command(BaseCommand):
 
         if all:
             for app in apps.get_app_configs():
-                # Filter external modules
-                if str(settings.BASE_DIR.parent) not in app.path or '.venv' in app.path:
+                # Include only modules defined within this django project's
+                # directory
+                if Path(settings.BASE_DIR) not in Path(app.path).parents:
                     continue
 
                 serializers += self._get_app_serializers(app.name)
