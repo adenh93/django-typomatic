@@ -582,13 +582,13 @@ def generate_ts(output_path, context='default', trim_serializer_output=False, ca
     output_path.parent.mkdir(exist_ok=True, parents=True)
 
     with open(output_path, 'w') as output_file:
-        imports = __generate_imports(context, trim_serializer_output)
         interfaces = __generate_interfaces(context, trim_serializer_output, camelize, enum_choices,
                                            enum_values, enum_keys, annotations)
         enums = []
         if enum_choices or enum_values or enum_keys:
             enums = __generate_enums(context, enum_choices, enum_values, enum_keys)
         enums_string = __remove_duplicate_enums(enums)
+        imports = __generate_imports(context, trim_serializer_output)
         output_file.write(imports + enums_string + ''.join(interfaces))
 
 
