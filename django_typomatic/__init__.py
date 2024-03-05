@@ -213,7 +213,12 @@ def __process_field(field_name, field, context, serializer, trim_serializer_outp
     '''
     Generates and returns a tuple representing the Typescript field name and Type.
     '''
-    if hasattr(field, 'child'):
+    # For PrimaryKeyRelatedField, set field_type to the type of the primary key
+    # on the related model
+    if isinstance(field, serializers.PrimaryKeyRelatedField):
+        is_many = False
+        field_type = type(field.queryset.model._meta.pk)
+    elif hasattr(field, 'child'):
         is_many = True
         field_type = type(field.child)
     elif hasattr(field, 'child_relation'):
@@ -232,8 +237,6 @@ def __process_field(field_name, field, context, serializer, trim_serializer_outp
             and field_name in __mapping_overrides[context][serializer]:
         ts_type = __mapping_overrides[context][serializer].get(
             field_name, 'any')
-    elif field_type == serializers.PrimaryKeyRelatedField:
-        ts_type = "number | string"
     elif hasattr(field, 'choice_strings_to_values') and enum_choices:
         ts_type = f"{''.join(x.title() for x in field_name.split('_'))}ChoiceEnum"
     elif hasattr(field, 'choice_strings_to_values') and enum_choices and enum_values \
