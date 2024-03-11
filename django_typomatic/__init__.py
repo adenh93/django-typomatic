@@ -5,6 +5,7 @@ from rest_framework import serializers
 from rest_framework.serializers import BaseSerializer
 from rest_framework.fields import empty
 
+from django.db.models import OneToOneField
 from django.db.models.enums import Choices
 import inspect
 
@@ -217,7 +218,13 @@ def __process_field(field_name, field, context, serializer, trim_serializer_outp
     # on the related model
     if isinstance(field, serializers.PrimaryKeyRelatedField) and field.queryset:
         is_many = False
-        field_type = type(field.queryset.model._meta.pk)
+
+        target_field = field.queryset.model._meta.pk
+        while isinstance(target_field, OneToOneField):
+            # Recurse into the parent model the field is inheriting from
+            target_field = target_field.model._meta.pk.target_field
+
+        field_type = type(target_field)
     elif hasattr(field, 'child'):
         is_many = True
         field_type = type(field.child)
