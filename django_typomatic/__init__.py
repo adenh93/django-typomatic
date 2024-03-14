@@ -209,6 +209,18 @@ def __map_choices_to_enum_keys_by_values(enum_name, choices):
     return choices_enum
 
 
+def __is_known_serializer_type(serializer_type, context):
+    for _context, serializers in __serializers.items():
+        if serializer_type in serializers:
+            imports = __imports.get(context, {})
+            type_imports = imports.get(_context, set())
+            type_imports.add(serializer_type)
+            imports[_context] = type_imports
+            __imports[context] = imports
+            return True
+    return False
+
+
 def __process_field(field_name, field, context, serializer, trim_serializer_output, camelize,
                     enum_choices, enum_values, enum_keys):
     '''
@@ -235,7 +247,7 @@ def __process_field(field_name, field, context, serializer, trim_serializer_outp
         is_many = False
         field_type = type(field)
 
-    if field_type in __serializers[context]:
+    if field_type in __serializers[context] or __is_known_serializer_type(field_type, context):
         ts_type = __get_trimmed_name(
             field_type.__name__, trim_serializer_output)
     elif field_type in __field_mappings[context]:
@@ -317,15 +329,7 @@ def __get_nested_serializer_field(context, enum_choices, enum_values, enum_keys,
 
             if is_external_serializer and return_type not in __serializers.get(context, []):
                 # Import the serializer if it was previously generated
-                for _context, serializers in __serializers.items():
-                    if return_type in serializers:
-                        imports = __imports.get(context, {})
-                        type_imports = imports.get(_context, set())
-                        type_imports.add(return_type)
-                        imports[_context] = type_imports
-                        __imports[context] = imports
-                        break
-                else:
+                if not __is_known_serializer_type(return_type, context):
                     # Include external Interface
                     ts_interface(context=context)(return_type)
                     # For duplicate interface, set not exported
