@@ -1,4 +1,5 @@
 import inspect
+from importlib import import_module
 from pathlib import Path
 
 from django.apps import apps
@@ -96,11 +97,11 @@ class Command(BaseCommand):
     @staticmethod
     def _get_app_serializers(app_name):
         serializers = []
-        modules = sys.modules.get(app_name, None)
+        modules = import_module(app_name)
         possibly_modules = filter(lambda name: not name.startswith('_'), dir(modules))
 
         for module_name in possibly_modules:
-            module = sys.modules.get(f'{app_name}.{module_name}', None)
+            module = import_module(f'{app_name}.{module_name}')
             possibly_serializers = filter(lambda name: not name.startswith('_'), dir(module))
 
             for serializer_class_name in possibly_serializers:
@@ -119,7 +120,7 @@ class Command(BaseCommand):
         return serializers
 
     def _generate_ts(self, module_name, serializer_name, output, **options):
-        module = sys.modules.get(module_name, None)
+        module = import_module(module_name)
 
         if not module:
             self.stdout.write(f'Module {module_name} not found, skip', self.style.WARNING)

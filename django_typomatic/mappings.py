@@ -2,9 +2,9 @@ from django.db.models import fields
 from rest_framework import serializers
 
 mappings = {
-    fields.AutoField: 'string',
-    fields.BigAutoField: 'string',
-    fields.BigIntegerField : 'string',
+    fields.AutoField: 'number',
+    fields.BigAutoField: 'number',
+    fields.BigIntegerField : 'number',
     fields.BinaryField: 'string',
     fields.BooleanField: 'boolean',
     fields.CharField: 'string',
