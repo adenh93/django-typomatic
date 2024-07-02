@@ -119,7 +119,9 @@ class Command(BaseCommand):
                     )
 
             if inspect.isclass(field):
-                if issubclass(field, BaseSerializer):
+                if module_name in field.__module__ and issubclass(
+                    field, BaseSerializer
+                ):
                     serializers.append(f"{module_name}.{field_name}")
 
         return serializers
