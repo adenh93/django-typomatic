@@ -440,6 +440,8 @@ def __get_nested_serializer_field(
                     ts_interface(context=context)(return_type)
                     # For duplicate interface, set not exported
                     setattr(return_type, "__exported__", False)
+        elif getattr(return_type, "__annotations__", None):
+            ts_type = __process_annotation(return_type.__annotations__)
 
         if is_serializer_type:
             ts_type = __get_trimmed_name(return_type.__name__, trim_serializer_output)
@@ -457,6 +459,41 @@ def __get_nested_serializer_field(
     types = list(dict.fromkeys(types))
     ts_type = " | ".join(types)
     return is_many, ts_type
+
+
+def __process_annotation(type: Type, debug=False) -> str:
+    retval = None
+    type_name = getattr(type, "_name", None)
+    if isinstance(type, dict):
+        retval = "{ "
+        for k, v in type.items():
+            keytype = __process_annotation(v, debug)
+            retval += f"{k}: {keytype}, "
+        retval += " }"
+    elif type_name == "List":
+        retval = __process_annotation(type.__args__[0], debug) + "[]"
+    elif type_name == "Tuple":
+        retval = "[ "
+        for v in type.__args__:
+            retval += __process_annotation(v, debug) + ", "
+        retval += "]"
+    else:
+        retval = {
+            float: "number",
+            int: "number",
+            str: "string",
+            bool: "boolean",
+        }.get(type)
+    if not retval:
+        retval = "null"
+    if debug:
+        print(
+            "annotation",
+            type,
+            getattr(type, "__name__", None),
+            retval,
+        )
+    return retval
 
 
 def __process_generic_type(return_type):
