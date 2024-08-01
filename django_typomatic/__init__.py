@@ -461,7 +461,7 @@ def __get_nested_serializer_field(
     return is_many, ts_type
 
 
-def __process_annotation(type: Type, debug=False) -> str:
+def __process_annotation(type, debug=False) -> str:
     retval = None
     type_name = getattr(type, "_name", None)
     if isinstance(type, dict):
