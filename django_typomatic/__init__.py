@@ -555,6 +555,14 @@ def __process_method_field(
 
     return ts_type
 
+def make_fields_tuple_list(fields_list):
+    fields_tuple_list = []
+    for field in fields_list:
+        fields_tuple_list += [(field.name, field)]
+    return fields_tuple_list
+
+def is_model_abstract(model_class):
+        return model_class._meta.abstract
 
 def __get_ts_interface(
     serializer,
@@ -579,6 +587,14 @@ def __get_ts_interface(
         hasattr(serializer, "get_fields")
         and hasattr(serializer, "Meta")
         and hasattr(serializer.Meta, "model")
+        and is_model_abstract(serializer.Meta.model)
+    ):
+        model_class = serializer.Meta.model
+        fields = make_fields_tuple_list(model_class._meta.get_fields())
+    elif (
+        hasattr(serializer, "get_fields")
+        and hasattr(serializer, "Meta")
+        and hasattr(serializer.Meta, "model")
     ):
         instance = serializer()
         fields = instance.get_fields().items()
@@ -598,10 +614,10 @@ def __get_ts_interface(
             enum_keys,
         )
 
-        if value.read_only or not value.required:
+        if (hasattr(value, "read_only") and value.read_only) or (hasattr(value, "required") and not value.required):
             ts_property = ts_property + "?"
 
-        if value.allow_null:
+        if hasattr(value, "allow_null") and value.allow_null:
             ts_type = ts_type + " | null"
 
         if annotations:
@@ -667,7 +683,15 @@ def __generate_enums(context, enum_choices, enum_values, enum_keys):
     if context not in __serializers:
         return []
     for serializer in __serializers[context]:
-        if hasattr(serializer, "get_fields"):
+        if (
+            hasattr(serializer, "get_fields")
+            and hasattr(serializer, "Meta")
+            and hasattr(serializer.Meta, "model")
+            and is_model_abstract(serializer.Meta.model)
+        ):
+            model_class = serializer.Meta.model
+            fields = make_fields_tuple_list(model_class._meta.get_fields())
+        elif hasattr(serializer, "get_fields"):
             instance = serializer()
             fields = instance.get_fields().items()
         else:
@@ -730,7 +754,7 @@ def __remove_duplicate_enums(enums):
 
 def __get_annotations(field, ts_type):
     annotations = ["    /**"]
-    if field.label:
+    if hasattr(field, "label") and field.label:
         annotations.append(f"    * @label {field.label}")
 
     default = field.default if field.default != empty else None
