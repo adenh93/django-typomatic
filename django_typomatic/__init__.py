@@ -618,8 +618,12 @@ def __get_ts_interface(
 
         if (hasattr(value, "read_only") and value.read_only) or (hasattr(value, "required") and not value.required):
             ts_property = ts_property + "?"
+        elif hasattr(value, "editable") and not value.editable:
+            ts_property = ts_property + "?"
 
         if hasattr(value, "allow_null") and value.allow_null:
+            ts_type = ts_type + " | null"
+        elif hasattr(value, "null") and value.null:
             ts_type = ts_type + " | null"
 
         if annotations:
