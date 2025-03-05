@@ -13,6 +13,8 @@ from typing import get_type_hints, get_origin, get_args
 
 from .mappings import mappings, format_mappings, primitives_mapping
 
+from django.db.models.fields import NOT_PROVIDED
+
 _LOG = logging.getLogger(f"django-typomatic.{__name__}")
 
 # Serializers
@@ -765,7 +767,7 @@ def __get_annotations(field, ts_type):
         if getattr(field, "max_length", None):
             annotations.append(f"    * @maxLength {field.max_length}")
 
-        if default is not None and "number | string" not in ts_type:
+        if default is not None and "number | string" not in ts_type and default != NOT_PROVIDED:
             annotations.append(f'    * @default "{default}"')
 
     if "number" in ts_type:
@@ -774,7 +776,7 @@ def __get_annotations(field, ts_type):
         if getattr(field, "max_value", None):
             annotations.append(f"    * @maximum {field.max_value}")
 
-        if default is not None:
+        if default is not None and default != NOT_PROVIDED:
             annotations.append(f"    * @default {default}")
 
     field_type = type(field)
