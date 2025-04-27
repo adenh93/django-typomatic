@@ -305,7 +305,7 @@ def __process_field(
     """
     # For PrimaryKeyRelatedField, set field_type to the type of the primary key
     # on the related model
-    if isinstance(field, serializers.PrimaryKeyRelatedField) and field.queryset:
+    if isinstance(field, serializers.PrimaryKeyRelatedField) and field.queryset is not None:
         is_many = False
 
         target_field = field.queryset.model._meta.pk
